@@ -500,6 +500,7 @@ BoundsTarget :: enum {
 BoundsMode :: enum {
 	None,
 	Shift,
+	Squish,
 	Flip,
 }
 
@@ -511,6 +512,7 @@ Bounds :: struct {
 ```
 
 - **Shift**: clamp the element inside the window bounds.
+- **Squish**: limit the element size to the window bounds (only for flex elements), then clamp it if needed.
 - **Flip**: flip the element to the opposite side on overflowing axes, then clamp it if needed.
 
 ### width and height
