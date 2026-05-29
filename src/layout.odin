@@ -49,7 +49,7 @@ compute_position :: proc(ctx: ^Context, element: ^Element) {
 
 	if element.position.type == .Absolute {
 		// absolute position is relative to the nearest parent with a non-auto position
-		placement_parent := find_placement_parent(ctx, element.parent)
+		placement_parent = find_placement_parent(ctx, element.parent)
 
 		element._position =
 			placement_parent._position +
