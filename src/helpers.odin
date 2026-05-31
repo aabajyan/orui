@@ -360,16 +360,25 @@ _set_scroll_offset_id :: proc(id: Id, offset: rl.Vector2) {
 scrollbar_handle_params :: proc(id: Id) -> (percent: [2]f32, size: [2]f32) {
 	element := get_element(id)
 	if element != nil {
-		scroll_percent := element.scroll.offset / (element._content_size - element._size)
+		viewport := rl.Vector2{inner_width(element), inner_height(element)}
+		scroll_range := element._content_size - viewport
+
+		scroll_percent: rl.Vector2 = {}
+		if scroll_range.x > 0 {
+			scroll_percent.x = clamp(element.scroll.offset.x / scroll_range.x, 0, 1)
+		}
+		if scroll_range.y > 0 {
+			scroll_percent.y = clamp(element.scroll.offset.y / scroll_range.y, 0, 1)
+		}
 
 		handle_size: rl.Vector2 = {}
-		if element._content_size.x > element._size.x {
-			handle_size.x = element._size.x / element._content_size.x
+		if element._content_size.x > viewport.x {
+			handle_size.x = viewport.x / element._content_size.x
 		} else {
 			handle_size.x = 1
 		}
-		if element._content_size.y > element._size.y {
-			handle_size.y = element._size.y / element._content_size.y
+		if element._content_size.y > viewport.y {
+			handle_size.y = viewport.y / element._content_size.y
 		} else {
 			handle_size.y = 1
 		}
