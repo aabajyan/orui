@@ -24,7 +24,8 @@ render_test_image :: proc() {
 			position = {.Absolute, {-5, 0}},
 			placement = orui.placement(.Right, .Right),
 			width = orui.fixed(8),
-			height = orui.percent(0.98),
+			height = orui.grow(),
+			margin = orui.margin(2, 18),
 		},
 		{
 			direction = .TopToBottom,

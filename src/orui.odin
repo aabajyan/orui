@@ -31,9 +31,11 @@ Context :: struct {
 	element_count:         [2]i32,
 	frame:                 int,
 	time:                  f64,
+	dt:                    f32,
 	default_font:          rl.Font,
 	text_cache:            [2]map[TextCacheKey]TextCache,
 	text_width_cache:      [2]map[TextWidthKey]f32,
+	animation_states:      [2]map[AnimationId]AnimationState,
 	sorted:                [MAX_ELEMENTS]i32,
 	sorted_count:          i32,
 	axis_items:            [MAX_ELEMENTS]AxisAllocationItem,
@@ -123,6 +125,7 @@ _begin :: proc(ctx: ^Context, width: f32, height: f32, dt: f32) {
 	ctx.text_cache[i] = make(map[TextCacheKey]TextCache, 1024, ctx.allocator[i])
 	ctx.text_width_cache[i] = make(map[TextWidthKey]f32, 1024, ctx.allocator[i])
 	ctx.grid_states[i] = make([dynamic]GridState, ctx.allocator[i])
+	ctx.animation_states[i] = make(map[AnimationId]AnimationState, 256, ctx.allocator[i])
 
 	handle_input_state(ctx)
 
@@ -149,8 +152,8 @@ _begin :: proc(ctx: ^Context, width: f32, height: f32, dt: f32) {
 	ctx.previous = 0
 	ctx.parent = 0
 
-	dt := dt > 0 ? dt : rl.GetFrameTime()
-	ctx.caret_time += dt
+	ctx.dt = dt > 0 ? dt : rl.GetFrameTime()
+	ctx.caret_time += ctx.dt
 }
 
 // Ends UI declaration.

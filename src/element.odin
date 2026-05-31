@@ -540,6 +540,7 @@ configure_element :: proc(
 
 to_id :: proc {
 	to_id_compiled,
+	to_id_compiled_index,
 	to_id_runtime,
 	to_id_int,
 	to_id_string_index,
@@ -548,6 +549,10 @@ to_id :: proc {
 
 to_id_compiled :: proc($S: string) -> Id {
 	return Id(#hash(S, "fnv32a"))
+}
+
+to_id_compiled_index :: proc($S: string, #any_int index: int) -> Id {
+	return Id(hash.fnv32a(transmute([]u8)S, u32(index)))
 }
 
 to_id_runtime :: proc(str: string) -> Id {
@@ -563,7 +568,6 @@ to_id_int :: proc(#any_int id: int) -> Id {
 }
 
 to_id_id_index :: proc(id: Id, #any_int index: int) -> Id {
-	id_u32 := u32(id)
-	id_bytes := transmute([4]u8)id_u32
+	id_bytes := transmute([4]u8)id
 	return Id(hash.fnv32a(id_bytes[:], u32(index)))
 }

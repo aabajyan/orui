@@ -49,6 +49,7 @@ Features:
   - Copy/cut/paste
 - Custom render events
   - Interleave your own rendering with the UI
+- Animation helpers
 
 To do:
 
@@ -82,6 +83,7 @@ To do:
   - [active()](#active)
   - [clicked()](#clicked)
 	- [focused()](#focused)
+- [Animation](#animation)
 - [Element config](#element-config)
   - [Config helpers](#config-helpers)
   - [Config modifiers](#config-modifiers)
@@ -414,6 +416,65 @@ if orui.captured("some element") {
   // is capturing input
 }
 ```
+
+## Animation
+
+Use `transition` when you have a boolean trigger:
+
+```odin
+orui.label(orui.id("button"), "Button", {
+	// background transitions from white to light gray when hovered over
+	background_color = orui.transition("background", orui.hovered(), rl.WHITE, rl.LIGHTGRAY),
+
+	// border transitions from 1px to 3px when input is active
+	border = orui.transition("border", orui.active(), orui.border(1), orui.border(3)),
+})
+```
+
+You can also get only the transition factor and use it for multiple values:
+
+```odin
+// Be careful: this transition is owned by the surrounding element, NOT the label below it.
+// Animation IDs should be unique within an element.
+hover_t := orui.transition("button1 hover", orui.hovered())
+
+orui.label(orui.id("button1"), "Button", {
+	background_color = orui.lerp(rl.WHITE, rl.LIGHTGRAY, hover_t),
+	padding = orui.lerp(orui.padding(8), orui.padding(12), hover_t),
+})
+```
+
+`transition` is best for simple on/off animations: one trigger, one start/end value.
+
+Use `animate` when a value has one final target, but that target might come from several states. Think of it as: choose where the value should end up, and let orui handle getting there smoothly.
+
+This keeps multi-state styles easy. You can use normal logic to decide which state wins, then pass the final target to `animate`:
+
+```odin
+target_bg := rl.WHITE
+if selected {
+	target_bg = {210, 230, 255, 255}
+}
+if orui.hovered() {
+	target_bg = rl.LIGHTGRAY
+}
+
+orui.label(orui.id("row", i), text, {
+	background_color = orui.animate("background", target_bg),
+})
+```
+
+You can customise the duration and easing for both `transition` and `animate`:
+
+```odin
+background_color = orui.animate("background", target_bg, 0.2, .Cubic_Out)
+```
+
+The easing is the Ease enum from odin's core:math/ease package.
+
+Animation state is stored in the orui context and scoped to the current element ID. This means animation IDs only need to be unique inside the element where they are used.
+
+You cannot use transition() and animate() outside of element declarations (for now).
 
 ## Element config
 

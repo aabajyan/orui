@@ -50,6 +50,7 @@ Scene :: enum {
 	Test_Placement,
 	Test_Text,
 	Test_Scroll,
+	Test_Animation,
 }
 
 main :: proc() {
@@ -112,7 +113,12 @@ main :: proc() {
 		{#directory, "..", "assets", "Inter-Regular.ttf"},
 		context.temp_allocator,
 	)
-	ctx.default_font = rl.LoadFont(strings.clone_to_cstring(font_path, context.temp_allocator))
+	ctx.default_font = rl.LoadFontEx(
+		strings.clone_to_cstring(font_path, context.temp_allocator),
+		80,
+		nil,
+		0,
+	)
 	defer rl.UnloadFont(ctx.default_font)
 
 	log.infof("orui struct size: %v KB", f32(size_of(ctx^)) / mem.Kilobyte)
@@ -163,6 +169,8 @@ main :: proc() {
 			render_test_placement()
 		case .Test_Scroll:
 			render_test_scroll()
+		case .Test_Animation:
+			render_test_animation()
 		}
 
 		orui.label(

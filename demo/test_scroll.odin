@@ -42,7 +42,8 @@ render_test_scroll :: proc() {
 			position = {.Absolute, {-5, 0}},
 			placement = orui.placement(.Right, .Right),
 			width = orui.fixed(8),
-			height = orui.percent(0.98),
+			height = orui.grow(),
+			margin = orui.margin(2, 18),
 		},
 		{
 			direction = .TopToBottom,
@@ -153,7 +154,7 @@ render_test_scroll :: proc() {
 				position = {.Absolute, {5, 0}},
 				placement = orui.placement(.Right, .Left),
 				width = orui.fixed(10),
-				height = orui.percent(1),
+				height = orui.grow(),
 				background_color = {214, 213, 142, 255},
 				corner_radius = orui.corner(4),
 			},
@@ -171,7 +172,7 @@ render_test_scroll :: proc() {
 			{
 				position = {.Absolute, {0, 15}},
 				placement = orui.placement(.Bottom, .Bottom),
-				width = orui.percent(1),
+				width = orui.grow(),
 				height = orui.fixed(10),
 				background_color = {214, 213, 142, 255},
 				corner_radius = orui.corner(4),
