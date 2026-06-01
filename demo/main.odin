@@ -113,11 +113,18 @@ main :: proc() {
 		{#directory, "..", "assets", "Inter-Regular.ttf"},
 		context.temp_allocator,
 	)
+	font_codepoints, _ := make([dynamic]rune, context.temp_allocator)
+	for codepoint in 0x20 ..= 0x7e {
+		append(&font_codepoints, rune(codepoint))
+	}
+	for codepoint in UNICODE_TEXT_SAMPLE {
+		append(&font_codepoints, codepoint)
+	}
 	ctx.default_font = rl.LoadFontEx(
 		strings.clone_to_cstring(font_path, context.temp_allocator),
 		80,
-		nil,
-		0,
+		raw_data(font_codepoints[:]),
+		i32(len(font_codepoints)),
 	)
 	defer rl.UnloadFont(ctx.default_font)
 

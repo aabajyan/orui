@@ -6,6 +6,8 @@ import rl "vendor:raylib"
 
 text_input: strings.Builder
 
+UNICODE_TEXT_SAMPLE :: "Greek: Γεια σου\nEmoji symbols: ☀ ★ ❤ ⚠ ✓"
+
 button_style :: proc(element: ^orui.Element) {
 	element.background_color =
 		orui.active() ? {220, 190, 170, 255} : orui.hovered() ? {250, 220, 200, 255} : {240, 210, 190, 255}
@@ -60,9 +62,16 @@ render_test_text :: proc() {
 	)
 
 	orui.label(
+		orui.id("unicode sample"),
+		UNICODE_TEXT_SAMPLE,
+		{font_size = 16, width = orui.fit(), overflow = .Wrap, color = rl.BLACK},
+		button_style,
+	)
+
+	orui.label(
 		orui.id("3"),
 		"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam vitae libero eu velit ultrices porta eget eu felis. Ut est mi, tempor vel ullamcorper non, mollis eget ante. Donec tempus ex facilisis lorem elementum, nec tempor justo euismod. Ut vehicula at mauris at accumsan. Morbi id faucibus libero, sit amet finibus mauris. Fusce mauris quam, elementum ut consequat sit amet, vehicula ut nisl. Pellentesque in nibh efficitur, posuere velit sit amet, suscipit diam.",
-		{font_size = 14, width = orui.grow(), overflow = .Wrap, align = {.End, .End}},
+		{font_size = 16, width = orui.grow(), overflow = .Wrap, align = {.End, .End}},
 		button_style,
 	)
 

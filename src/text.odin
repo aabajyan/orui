@@ -229,10 +229,15 @@ measure_text_height :: proc(font_size: f32, line_height_multiplier: f32) -> f32 
 
 @(private)
 glyph_advance :: proc(font: ^rl.Font, r: rune, font_size: f32) -> (adv: f32) {
-	idx := i32(r) - 32
-	if idx < 0 || idx >= font.glyphCount {
-		idx = i32('?' - 32)
+	if font == nil || font.glyphCount == 0 {
+		return 0
 	}
+
+	idx := rl.GetGlyphIndex(font^, r)
+	if idx < 0 || idx >= font.glyphCount {
+		return 0
+	}
+
 	if font.glyphs[idx].advanceX > 0 {
 		adv = f32(font.glyphs[idx].advanceX)
 	} else {
