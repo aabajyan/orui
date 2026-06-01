@@ -53,6 +53,8 @@ render_test_animation :: proc() {
 	animation_ease_row()
 	animation_button_row()
 	animation_input_row()
+	animation_size_row()
+	animation_progress_row()
 	animation_target_row()
 	animation_scroll_row()
 }
@@ -183,19 +185,12 @@ animation_input_row :: proc() {
 				"padding",
 				orui.active() || orui.focused(),
 				orui.padding(10, 8),
-				orui.padding(14, 10),
+				orui.padding(14, 8),
 				0.3,
 				animation_ease,
 			),
 			background_color = orui.animate("background", target_bg, 0.3, animation_ease),
-			border = orui.transition(
-				"border",
-				orui.active() || orui.focused(),
-				orui.border(1),
-				orui.border(3),
-				0.3,
-				animation_ease,
-			),
+			border = orui.border(1),
 			border_color = orui.animate("border color", target_border, 0.3, animation_ease),
 			corner_radius = orui.corner(4),
 			color = rl.BLACK,
@@ -203,6 +198,132 @@ animation_input_row :: proc() {
 			overflow = .Visible,
 			clip = {.Self, {}},
 			scroll = orui.scroll(.Horizontal),
+		},
+	)
+}
+
+animation_size_row :: proc() {
+	orui.container(
+		orui.id("size row"),
+		{width = orui.grow(), height = orui.fit(), align_main = .Center, align_cross = .Center},
+	)
+
+	size_id := orui.id("size demo")
+	hovered := orui.hovered()
+	active := orui.active()
+	target_bg := rl.Color{236, 224, 204, 255}
+	target_border := rl.Color{152, 122, 86, 255}
+
+	if hovered {
+		target_bg = {190, 226, 210, 255}
+		target_border = {54, 132, 102, 255}
+	}
+	if active {
+		target_bg = {170, 200, 238, 255}
+		target_border = {46, 88, 154, 255}
+	}
+
+	orui.container(
+		size_id,
+		{
+			width = orui.transition(
+				"width",
+				hovered,
+				orui.fixed(130),
+				orui.fixed(310),
+				0.3,
+				animation_ease,
+			),
+			height = orui.transition(
+				"height",
+				hovered,
+				orui.fixed(46),
+				orui.fixed(88),
+				0.3,
+				animation_ease,
+			),
+			background_color = orui.animate("background", target_bg, 0.3, animation_ease),
+			border = orui.transition(
+				"border",
+				active,
+				orui.border(1),
+				orui.border(8),
+				0.3,
+				animation_ease,
+			),
+			border_color = orui.animate("border color", target_border, 0.3, animation_ease),
+			corner_radius = orui.transition(
+				"corner",
+				hovered,
+				orui.corner(2),
+				orui.corner(16),
+				0.3,
+				animation_ease,
+			),
+			align_main = .Center,
+			align_cross = .Center,
+		},
+	)
+	orui.label(
+		orui.id("size label"),
+		"Resize",
+		{
+			color = {34, 38, 42, 255},
+			font_size = orui.transition(
+				"font size",
+				hovered,
+				f32(15),
+				f32(24),
+				0.3,
+				animation_ease,
+			),
+			align = {.Center, .Center},
+			block = .False,
+		},
+	)
+}
+
+animation_progress_row :: proc() {
+	time := f32(rl.GetTime())
+	phase := int(time / 0.9) % 5
+	target_progress: f32
+
+	switch phase {
+	case 0:
+		target_progress = 0.16
+	case 1:
+		target_progress = 0.58
+	case 2:
+		target_progress = 0.36
+	case 3:
+		target_progress = 0.88
+	case:
+		target_progress = 0.68
+	}
+
+	orui.container(
+		orui.id("progress row"),
+		{width = orui.grow(), height = orui.fit(), align_main = .Center, align_cross = .Center},
+	)
+	orui.container(
+		orui.id("progress track"),
+		{
+			width = orui.fixed(500),
+			height = orui.fixed(28),
+			background_color = {224, 226, 222, 255},
+			border = orui.border(1),
+			border_color = {170, 174, 168, 255},
+			corner_radius = orui.corner(4),
+			clip = {.Self, {}},
+		},
+	)
+	orui.container(
+		orui.id("progress fill"),
+		{
+			width = orui.animate("width", orui.percent(target_progress), 0.55, animation_ease),
+			height = orui.percent(1),
+			background_color = {76, 135, 198, 255},
+			corner_radius = orui.corner(3),
 		},
 	)
 }

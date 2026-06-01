@@ -47,6 +47,12 @@ AnimationCornersData :: struct {
 	target: Corners,
 }
 
+AnimationSizeData :: struct {
+	value:  Size,
+	start:  Size,
+	target: Size,
+}
+
 AnimationData :: union {
 	AnimationFactorData,
 	AnimationFloatData,
@@ -54,6 +60,7 @@ AnimationData :: union {
 	AnimationColorData,
 	AnimationEdgesData,
 	AnimationCornersData,
+	AnimationSizeData,
 }
 
 AnimationState :: struct {
@@ -77,6 +84,8 @@ transition :: proc {
 	transition_edges_string_index,
 	transition_corners_string,
 	transition_corners_string_index,
+	transition_size_string,
+	transition_size_string_index,
 }
 
 animate :: proc {
@@ -90,6 +99,8 @@ animate :: proc {
 	animate_edges_string_index,
 	animate_corners_string,
 	animate_corners_string_index,
+	animate_size_string,
+	animate_size_string_index,
 }
 
 lerp :: proc {
@@ -98,6 +109,7 @@ lerp :: proc {
 	lerp_color,
 	lerp_edges,
 	lerp_corners,
+	lerp_size,
 }
 
 lerp_float :: proc(a, b, t: f32) -> f32 {
@@ -137,6 +149,17 @@ lerp_corners :: proc(a, b: Corners, t: f32) -> Corners {
 		top_right = lerp_float(a.top_right, b.top_right, t),
 		bottom_right = lerp_float(a.bottom_right, b.bottom_right, t),
 		bottom_left = lerp_float(a.bottom_left, b.bottom_left, t),
+	}
+}
+
+lerp_size :: proc(a, b: Size, t: f32) -> Size {
+	if a.type != b.type do return b
+
+	return Size {
+		type = a.type,
+		value = lerp_float(a.value, b.value, t),
+		min = lerp_float(a.min, b.min, t),
+		max = lerp_float(a.max, b.max, t),
 	}
 }
 
@@ -290,6 +313,35 @@ transition_corners_string_index :: proc(
 	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
 ) -> Corners {
 	return lerp_corners(
+		from,
+		to,
+		transition_factor(animation_id(id, index), trigger, duration, easing),
+	)
+}
+
+@(private)
+transition_size_string :: proc(
+	id: string,
+	trigger: bool,
+	from, to: Size,
+	duration: f32 = DEFAULT_ANIMATION_TIME,
+	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
+) -> Size {
+	if from.type != to.type do return trigger ? to : from
+	return lerp_size(from, to, transition_factor(animation_id(id), trigger, duration, easing))
+}
+
+@(private)
+transition_size_string_index :: proc(
+	id: string,
+	index: int,
+	trigger: bool,
+	from, to: Size,
+	duration: f32 = DEFAULT_ANIMATION_TIME,
+	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
+) -> Size {
+	if from.type != to.type do return trigger ? to : from
+	return lerp_size(
 		from,
 		to,
 		transition_factor(animation_id(id, index), trigger, duration, easing),
@@ -456,6 +508,27 @@ animate_corners_string_index :: proc(
 	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
 ) -> Corners {
 	return animate_corners(animation_id(id, index), target, duration, easing)
+}
+
+@(private)
+animate_size_string :: proc(
+	id: string,
+	target: Size,
+	duration: f32 = DEFAULT_ANIMATION_TIME,
+	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
+) -> Size {
+	return animate_size(animation_id(id), target, duration, easing)
+}
+
+@(private)
+animate_size_string_index :: proc(
+	id: string,
+	index: int,
+	target: Size,
+	duration: f32 = DEFAULT_ANIMATION_TIME,
+	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
+) -> Size {
+	return animate_size(animation_id(id, index), target, duration, easing)
 }
 
 @(private)
@@ -713,6 +786,70 @@ animate_corners :: proc(
 	}
 
 	data := AnimationCornersData {
+		value  = target,
+		start  = target,
+		target = target,
+	}
+	state := AnimationState {
+		elapsed  = 0,
+		duration = max(duration, 0),
+		easing   = easing,
+		active   = false,
+		data     = data,
+	}
+	animation_store(ctx, key, state)
+	return data.value
+}
+
+@(private)
+animate_size :: proc(
+	local_id: AnimationId,
+	target: Size,
+	duration: f32 = DEFAULT_ANIMATION_TIME,
+	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
+) -> Size {
+	ctx := current_context
+	key := animation_key(local_id)
+
+	if state, ok := animation_current(ctx, key); ok {
+		if data, ok := state.data.(AnimationSizeData); ok {
+			assert(
+				data.target == target,
+				"same animate id used with conflicting targets in one frame",
+			)
+			return data.value
+		}
+
+		assert(false, "animation id reused with incompatible animation value type")
+		return {}
+	}
+
+	if state, ok := animation_previous(ctx, key); ok {
+		if data, ok := state.data.(AnimationSizeData); ok {
+			if data.target != target {
+				if data.target.type != target.type {
+					data.value = target
+					data.start = target
+					data.target = target
+					state.active = false
+					state.elapsed = 0
+					state.duration = max(duration, 0)
+					state.easing = easing
+				} else {
+					data.start = data.value
+					data.target = target
+					animation_start(&state, duration, easing, data.start != data.target)
+				}
+			}
+
+			animation_update(ctx, &state, &data)
+			state.data = data
+			animation_store(ctx, key, state)
+			return data.value
+		}
+	}
+
+	data := AnimationSizeData {
 		value  = target,
 		start  = target,
 		target = target,
