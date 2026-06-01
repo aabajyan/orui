@@ -11,7 +11,7 @@ It is meant for building user-facing UIs using familiar concepts from CSS.
 <img src="examples/assets.png" width="48%" /><img src="examples/profiler.png" width="43%" />
 <img src="demo/test_flex.png" width="45%" /><img src="demo/test_grid.png" width="45%" />
 <img src="examples/skinning/screenshot.gif" width="45%" /><img src="examples/window/screenshot.gif" width="42%" />
-<img src="demo/test_scroll.gif" width="40%" /><img src="examples/widgets/screenshot.png" width="45%">
+<img src="demo/test_scroll.gif" width="40%" /><img src="demo/test_animation.gif" width="44%">
 
 Features:
 
