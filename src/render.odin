@@ -57,6 +57,7 @@ render :: proc(ctx: ^Context) {
 	sort_elements(ctx)
 
 	current_clip: ClipRectangle
+	current_clip_source: ^Element
 	ctx.render_command_count = 0
 	for i: i32 = 0; i < ctx.sorted_count; i += 1 {
 		index := ctx.sorted[i]
@@ -66,19 +67,23 @@ render :: proc(ctx: ^Context) {
 			if current_clip.width > 0 && current_clip.height > 0 {
 				ctx.render_commands[ctx.render_command_count] = RenderCommand {
 					type = .ScissorEnd,
+					source = current_clip_source,
 					data = RenderCommandDataScissorEnd{},
 				}
 				ctx.render_command_count += 1
 				current_clip = {}
+				current_clip_source = nil
 			}
 
 			if element._clip.width > 0 && element._clip.height > 0 {
 				ctx.render_commands[ctx.render_command_count] = RenderCommand {
 					type = .ScissorStart,
+					source = element,
 					data = RenderCommandDataScissorStart{rectangle = element._clip},
 				}
 				ctx.render_command_count += 1
 				current_clip = element._clip
+				current_clip_source = element
 			}
 		}
 
@@ -88,6 +93,7 @@ render :: proc(ctx: ^Context) {
 	if current_clip != {} {
 		ctx.render_commands[ctx.render_command_count] = RenderCommand {
 			type = .ScissorEnd,
+			source = current_clip_source,
 			data = RenderCommandDataScissorEnd{},
 		}
 		ctx.render_command_count += 1
@@ -185,6 +191,7 @@ render_element :: proc(ctx: ^Context, index: i32) {
 	if element.background_color.a > 0 {
 		ctx.render_commands[ctx.render_command_count] = RenderCommand {
 			type = .Rectangle,
+			source = element,
 			data = RenderCommandDataRectangle {
 				position = element._position,
 				size = element._size,
@@ -198,6 +205,7 @@ render_element :: proc(ctx: ^Context, index: i32) {
 	if element.border_color.a > 0 {
 		ctx.render_commands[ctx.render_command_count] = RenderCommand {
 			type = .Border,
+			source = element,
 			data = RenderCommandDataBorder {
 				position = element._position,
 				size = element._size,
@@ -224,6 +232,7 @@ render_element :: proc(ctx: ^Context, index: i32) {
 	if element.custom_event != nil {
 		ctx.render_commands[ctx.render_command_count] = RenderCommand {
 			type = .Custom,
+			source = element,
 			data = RenderCommandDataCustom {
 				source = element,
 				rectangle = {
@@ -563,6 +572,7 @@ render_texture :: proc(ctx: ^Context, element: ^Element) {
 	if adjusted_dest.width > 0 && adjusted_dest.height > 0 {
 		ctx.render_commands[ctx.render_command_count] = RenderCommand {
 			type = .Image,
+			source = element,
 			data = RenderCommandDataImage {
 				texture = element.texture,
 				color = color,

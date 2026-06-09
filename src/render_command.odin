@@ -4,6 +4,7 @@ import rl "vendor:raylib"
 
 RenderCommand :: struct {
 	type: RenderCommandType,
+	source: ^Element,
 	data: RenderCommandData,
 }
 
@@ -51,6 +52,8 @@ RenderCommandDataText :: struct {
 	font:           ^rl.Font,
 	font_size:      f32,
 	letter_spacing: f32,
+	start_index:    int,
+	end_index:      int,
 }
 
 RenderCommandDataImage :: struct {

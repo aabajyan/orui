@@ -181,8 +181,13 @@ TextWrapIterator :: struct {
 	last_nonspace_end: int,
 }
 
+measure_text_width :: proc {
+	measure_text_width_cached,
+	measure_text_width_uncached,
+}
+
 @(private)
-measure_text_width :: proc(
+measure_text_width_cached :: proc(
 	ctx: ^Context,
 	text: string,
 	font: ^rl.Font,
@@ -207,6 +212,23 @@ measure_text_width :: proc(
 		return width
 	}
 
+	width := measure_text_width(text, font, font_size, resolved_letter_spacing)
+	ctx.text_width_cache[current_buffer(ctx)][cache_key] = width
+	return width
+}
+
+@(private)
+measure_text_width_uncached :: proc(
+	text: string,
+	font: ^rl.Font,
+	font_size: f32,
+	letter_spacing: f32,
+) -> f32 {
+	if len(text) == 0 {
+		return 0
+	}
+
+	resolved_letter_spacing := _letter_spacing(letter_spacing)
 	width: f32 = 0
 	count := 0
 	for codepoint in text {
@@ -217,14 +239,49 @@ measure_text_width :: proc(
 	}
 
 	width += resolved_letter_spacing * f32(count - 1)
-	ctx.text_width_cache[current_buffer(ctx)][cache_key] = width
 	return width
 }
 
-@(private)
 measure_text_height :: proc(font_size: f32, line_height_multiplier: f32) -> f32 {
 	line_height := line_height_multiplier > 0 ? line_height_multiplier : 1
 	return font_size * line_height
+}
+
+measure_text_command_range :: proc(
+	command: RenderCommand,
+	start_index: int,
+	end_index: int,
+	loc := #caller_location,
+) -> (
+	rect: rl.Rectangle,
+	ok: bool,
+) {
+	assert(command.type == .Text, loc = loc)
+
+	data := command.data.(RenderCommandDataText)
+	start := max(start_index, data.start_index)
+	end := min(end_index, data.end_index)
+	if start >= end {
+		return {}, false
+	}
+
+	local_start := start - data.start_index
+	local_end := end - data.start_index
+	prefix_width := measure_text_width(
+		data.text[:local_start],
+		data.font,
+		data.font_size,
+		data.letter_spacing,
+	)
+	range_width := measure_text_width(
+		data.text[local_start:local_end],
+		data.font,
+		data.font_size,
+		data.letter_spacing,
+	)
+	height := data.font_size
+
+	return {data.position.x + prefix_width, data.position.y, range_width, height}, true
 }
 
 @(private)
@@ -696,6 +753,8 @@ _render_text_line :: proc(
 	ctx: ^Context,
 	element: ^Element,
 	text: string,
+	start_index: int,
+	end_index: int,
 	line_width: f32,
 	x_start: f32,
 	y: f32,
@@ -713,6 +772,7 @@ _render_text_line :: proc(
 
 	ctx.render_commands[ctx.render_command_count] = RenderCommand {
 		type = .Text,
+		source = element,
 		data = RenderCommandDataText {
 			position = {x, y},
 			text = text,
@@ -720,6 +780,8 @@ _render_text_line :: proc(
 			font_size = element.font_size,
 			letter_spacing = letter_spacing,
 			color = element.color,
+			start_index = start_index,
+			end_index = end_index,
 		},
 	}
 	ctx.render_command_count += 1
@@ -758,6 +820,8 @@ render_text :: proc(ctx: ^Context, element: ^Element) {
 		ctx,
 		element,
 		element.text,
+		0,
+		len(element.text),
 		element._text_width,
 		x,
 		y,
@@ -823,6 +887,8 @@ render_wrapped_text :: proc(ctx: ^Context, element: ^Element) {
 			ctx,
 			element,
 			text[line.start:line.end],
+			line.start,
+			line.end,
 			line.width,
 			x_start,
 			y,
@@ -912,6 +978,7 @@ render_caret :: proc(
 	current_context.caret_position = {x_start + line_offset + prefix_width, y}
 	current_context.render_commands[current_context.render_command_count] = RenderCommand {
 		type = .Rectangle,
+		source = element,
 		data = RenderCommandDataRectangle {
 			position = current_context.caret_position,
 			size = {1, element._line_height},
@@ -974,6 +1041,7 @@ render_selection :: proc(
 	x := x_start + line_offset + prefix_width
 	current_context.render_commands[current_context.render_command_count] = RenderCommand {
 		type = .Rectangle,
+		source = element,
 		data = RenderCommandDataRectangle {
 			position = {x, y},
 			size = {selection_width, element._line_height},
