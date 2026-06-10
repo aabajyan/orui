@@ -4,14 +4,12 @@
 
 orui is an immediate mode UI library for odin and raylib, with support for flex and grid layouts.
 
-It is meant for building user-facing UIs using familiar concepts from CSS.
-
 **Requires odin 2026-03 release or newer!**
 
 <img src="examples/assets.png" width="48%" /><img src="examples/profiler.png" width="43%" />
-<img src="demo/test_flex.png" width="45%" /><img src="demo/test_grid.png" width="45%" />
 <img src="examples/skinning/screenshot.gif" width="45%" /><img src="examples/window/screenshot.gif" width="42%" />
 <img src="demo/test_scroll.gif" width="40%" /><img src="demo/test_animation.gif" width="44%">
+<img src="examples/text_decoration/text_decoration.gif" width="90%" />
 
 Features:
 
@@ -24,11 +22,8 @@ Features:
   - Auto rows/columns
   - Fixed rows/columns
   - Flow direction
-  - Column/row gaps
-  - Column/row spans
-  - Column/row sizes
+  - Column/row gaps, spans, sizes
 - Absolute, relative and fixed positioning
-  - Anchor and origin
 - Layers (z-index)
 - Padding, margin, borders, rounded corners, overflow, clipping
 - Scroll (with mouse wheel)
@@ -37,14 +32,11 @@ Features:
   - Alignment
   - Content fit (fill, contain, cover, none, scale-down)
 - Text
-  - Line height
-  - Letter spacing
-  - Wrapping
-  - Alignment
+  - Line height, letter spacing, wrapping, alignment
 - Text inputs
+  - Single line and multi line
   - Click, move with arrow keys, home+end, insert, backspace, select all
   - Double click, triple click
-  - Single line and multi line
   - Mouse and keyboard text selection
   - Copy/cut/paste
 - Custom render events
