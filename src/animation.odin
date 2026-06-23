@@ -17,50 +17,20 @@ AnimationFactorData :: struct {
 	trigger: bool,
 }
 
-AnimationFloatData :: struct {
-	value:  f32,
-	start:  f32,
-	target: f32,
-}
-
-AnimationVector2Data :: struct {
-	value:  rl.Vector2,
-	start:  rl.Vector2,
-	target: rl.Vector2,
-}
-
-AnimationColorData :: struct {
-	value:  rl.Color,
-	start:  rl.Color,
-	target: rl.Color,
-}
-
-AnimationEdgesData :: struct {
-	value:  Edges,
-	start:  Edges,
-	target: Edges,
-}
-
-AnimationCornersData :: struct {
-	value:  Corners,
-	start:  Corners,
-	target: Corners,
-}
-
-AnimationSizeData :: struct {
-	value:  Size,
-	start:  Size,
-	target: Size,
+AnimationValueData :: struct($T: typeid) {
+	value:  T,
+	start:  T,
+	target: T,
 }
 
 AnimationData :: union {
 	AnimationFactorData,
-	AnimationFloatData,
-	AnimationVector2Data,
-	AnimationColorData,
-	AnimationEdgesData,
-	AnimationCornersData,
-	AnimationSizeData,
+	AnimationValueData(f32),
+	AnimationValueData(rl.Vector2),
+	AnimationValueData(rl.Color),
+	AnimationValueData(Edges),
+	AnimationValueData(Corners),
+	AnimationValueData(Size),
 }
 
 AnimationState :: struct {
@@ -74,33 +44,13 @@ AnimationState :: struct {
 transition :: proc {
 	transition_factor_string,
 	transition_factor_string_index,
-	transition_float_string,
-	transition_float_string_index,
-	transition_vector2_string,
-	transition_vector2_string_index,
-	transition_color_string,
-	transition_color_string_index,
-	transition_edges_string,
-	transition_edges_string_index,
-	transition_corners_string,
-	transition_corners_string_index,
-	transition_size_string,
-	transition_size_string_index,
+	transition_string,
+	transition_string_index,
 }
 
 animate :: proc {
-	animate_float_string,
-	animate_float_string_index,
-	animate_vector2_string,
-	animate_vector2_string_index,
-	animate_color_string,
-	animate_color_string_index,
-	animate_edges_string,
-	animate_edges_string_index,
-	animate_corners_string,
-	animate_corners_string_index,
-	animate_size_string,
-	animate_size_string_index,
+	animate_string,
+	animate_string_index,
 }
 
 lerp :: proc {
@@ -185,167 +135,41 @@ transition_factor_string_index :: proc(
 }
 
 @(private)
-transition_float_string :: proc(
+transition_string :: proc(
 	id: string,
 	trigger: bool,
-	from, to: f32,
+	from, to: $T,
 	duration: f32 = DEFAULT_ANIMATION_TIME,
 	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> f32 {
-	return lerp_float(from, to, transition_factor(animation_id(id), trigger, duration, easing))
+) -> T {
+	return transition_value(animation_id(id), trigger, from, to, duration, easing)
 }
 
 @(private)
-transition_float_string_index :: proc(
+transition_string_index :: proc(
 	id: string,
 	index: int,
 	trigger: bool,
-	from, to: f32,
+	from, to: $T,
 	duration: f32 = DEFAULT_ANIMATION_TIME,
 	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> f32 {
-	return lerp_float(
-		from,
-		to,
-		transition_factor(animation_id(id, index), trigger, duration, easing),
-	)
+) -> T {
+	return transition_value(animation_id(id, index), trigger, from, to, duration, easing)
 }
 
 @(private)
-transition_vector2_string :: proc(
-	id: string,
+transition_value :: proc(
+	local_id: AnimationId,
 	trigger: bool,
-	from, to: rl.Vector2,
+	from, to: $T,
 	duration: f32 = DEFAULT_ANIMATION_TIME,
 	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> rl.Vector2 {
-	return lerp_vector2(from, to, transition_factor(animation_id(id), trigger, duration, easing))
-}
+) -> T {
+	when T == Size {
+		if from.type != to.type do return trigger ? to : from
+	}
 
-@(private)
-transition_vector2_string_index :: proc(
-	id: string,
-	index: int,
-	trigger: bool,
-	from, to: rl.Vector2,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> rl.Vector2 {
-	return lerp_vector2(
-		from,
-		to,
-		transition_factor(animation_id(id, index), trigger, duration, easing),
-	)
-}
-
-@(private)
-transition_color_string :: proc(
-	id: string,
-	trigger: bool,
-	from, to: rl.Color,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> rl.Color {
-	return lerp_color(from, to, transition_factor(animation_id(id), trigger, duration, easing))
-}
-
-@(private)
-transition_color_string_index :: proc(
-	id: string,
-	index: int,
-	trigger: bool,
-	from, to: rl.Color,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> rl.Color {
-	return lerp_color(
-		from,
-		to,
-		transition_factor(animation_id(id, index), trigger, duration, easing),
-	)
-}
-
-@(private)
-transition_edges_string :: proc(
-	id: string,
-	trigger: bool,
-	from, to: Edges,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Edges {
-	return lerp_edges(from, to, transition_factor(animation_id(id), trigger, duration, easing))
-}
-
-@(private)
-transition_edges_string_index :: proc(
-	id: string,
-	index: int,
-	trigger: bool,
-	from, to: Edges,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Edges {
-	return lerp_edges(
-		from,
-		to,
-		transition_factor(animation_id(id, index), trigger, duration, easing),
-	)
-}
-
-@(private)
-transition_corners_string :: proc(
-	id: string,
-	trigger: bool,
-	from, to: Corners,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Corners {
-	return lerp_corners(from, to, transition_factor(animation_id(id), trigger, duration, easing))
-}
-
-@(private)
-transition_corners_string_index :: proc(
-	id: string,
-	index: int,
-	trigger: bool,
-	from, to: Corners,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Corners {
-	return lerp_corners(
-		from,
-		to,
-		transition_factor(animation_id(id, index), trigger, duration, easing),
-	)
-}
-
-@(private)
-transition_size_string :: proc(
-	id: string,
-	trigger: bool,
-	from, to: Size,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Size {
-	if from.type != to.type do return trigger ? to : from
-	return lerp_size(from, to, transition_factor(animation_id(id), trigger, duration, easing))
-}
-
-@(private)
-transition_size_string_index :: proc(
-	id: string,
-	index: int,
-	trigger: bool,
-	from, to: Size,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Size {
-	if from.type != to.type do return trigger ? to : from
-	return lerp_size(
-		from,
-		to,
-		transition_factor(animation_id(id, index), trigger, duration, easing),
-	)
+	return lerp(from, to, transition_factor(local_id, trigger, duration, easing))
 }
 
 @(private)
@@ -406,197 +230,38 @@ transition_factor :: proc(
 }
 
 @(private)
-animate_float_string :: proc(
+animate_string :: proc(
 	id: string,
-	target: f32,
+	target: $T,
 	duration: f32 = DEFAULT_ANIMATION_TIME,
 	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> f32 {
-	return animate_float(animation_id(id), target, duration, easing)
+) -> T {
+	return animate_value(animation_id(id), target, duration, easing)
 }
 
 @(private)
-animate_float_string_index :: proc(
-	id: string,
-	index: int,
-	target: f32,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> f32 {
-	return animate_float(animation_id(id, index), target, duration, easing)
-}
-
-@(private)
-animate_vector2_string :: proc(
-	id: string,
-	target: rl.Vector2,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> rl.Vector2 {
-	return animate_vector2(animation_id(id), target, duration, easing)
-}
-
-@(private)
-animate_vector2_string_index :: proc(
+animate_string_index :: proc(
 	id: string,
 	index: int,
-	target: rl.Vector2,
+	target: $T,
 	duration: f32 = DEFAULT_ANIMATION_TIME,
 	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> rl.Vector2 {
-	return animate_vector2(animation_id(id, index), target, duration, easing)
+) -> T {
+	return animate_value(animation_id(id, index), target, duration, easing)
 }
 
 @(private)
-animate_color_string :: proc(
-	id: string,
-	target: rl.Color,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> rl.Color {
-	return animate_color(animation_id(id), target, duration, easing)
-}
-
-@(private)
-animate_color_string_index :: proc(
-	id: string,
-	index: int,
-	target: rl.Color,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> rl.Color {
-	return animate_color(animation_id(id, index), target, duration, easing)
-}
-
-@(private)
-animate_edges_string :: proc(
-	id: string,
-	target: Edges,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Edges {
-	return animate_edges(animation_id(id), target, duration, easing)
-}
-
-@(private)
-animate_edges_string_index :: proc(
-	id: string,
-	index: int,
-	target: Edges,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Edges {
-	return animate_edges(animation_id(id, index), target, duration, easing)
-}
-
-@(private)
-animate_corners_string :: proc(
-	id: string,
-	target: Corners,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Corners {
-	return animate_corners(animation_id(id), target, duration, easing)
-}
-
-@(private)
-animate_corners_string_index :: proc(
-	id: string,
-	index: int,
-	target: Corners,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Corners {
-	return animate_corners(animation_id(id, index), target, duration, easing)
-}
-
-@(private)
-animate_size_string :: proc(
-	id: string,
-	target: Size,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Size {
-	return animate_size(animation_id(id), target, duration, easing)
-}
-
-@(private)
-animate_size_string_index :: proc(
-	id: string,
-	index: int,
-	target: Size,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Size {
-	return animate_size(animation_id(id, index), target, duration, easing)
-}
-
-@(private)
-animate_float :: proc(
+animate_value :: proc(
 	local_id: AnimationId,
-	target: f32,
+	target: $T,
 	duration: f32 = DEFAULT_ANIMATION_TIME,
 	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> f32 {
+) -> T {
 	ctx := current_context
 	key := animation_key(local_id)
 
 	if state, ok := animation_current(ctx, key); ok {
-		if data, ok := state.data.(AnimationFloatData); ok {
-			assert(
-				data.target == target,
-				"same animate id used with conflicting targets in one frame",
-			)
-			return data.value
-		}
-
-		assert(false, "animation id reused with incompatible animation value type")
-		return 0
-	}
-
-	if state, ok := animation_previous(ctx, key); ok {
-		if data, ok := state.data.(AnimationFloatData); ok {
-			if data.target != target {
-				data.start = data.value
-				data.target = target
-				animation_start(&state, duration, easing, data.start != data.target)
-			}
-
-			animation_update(ctx, &state, &data)
-			state.data = data
-			animation_store(ctx, key, state)
-			return data.value
-		}
-	}
-
-	data := AnimationFloatData {
-		value  = target,
-		start  = target,
-		target = target,
-	}
-	state := AnimationState {
-		elapsed  = 0,
-		duration = max(duration, 0),
-		easing   = easing,
-		active   = false,
-		data     = data,
-	}
-	animation_store(ctx, key, state)
-	return data.value
-}
-
-@(private)
-animate_vector2 :: proc(
-	local_id: AnimationId,
-	target: rl.Vector2,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> rl.Vector2 {
-	ctx := current_context
-	key := animation_key(local_id)
-
-	if state, ok := animation_current(ctx, key); ok {
-		if data, ok := state.data.(AnimationVector2Data); ok {
+		if data, ok := state.data.(AnimationValueData(T)); ok {
 			assert(
 				data.target == target,
 				"same animate id used with conflicting targets in one frame",
@@ -609,232 +274,22 @@ animate_vector2 :: proc(
 	}
 
 	if state, ok := animation_previous(ctx, key); ok {
-		if data, ok := state.data.(AnimationVector2Data); ok {
+		if data, ok := state.data.(AnimationValueData(T)); ok {
 			if data.target != target {
-				data.start = data.value
-				data.target = target
-				animation_start(&state, duration, easing, data.start != data.target)
-			}
-
-			animation_update(ctx, &state, &data)
-			state.data = data
-			animation_store(ctx, key, state)
-			return data.value
-		}
-	}
-
-	data := AnimationVector2Data {
-		value  = target,
-		start  = target,
-		target = target,
-	}
-	state := AnimationState {
-		elapsed  = 0,
-		duration = max(duration, 0),
-		easing   = easing,
-		active   = false,
-		data     = data,
-	}
-	animation_store(ctx, key, state)
-	return data.value
-}
-
-@(private)
-animate_color :: proc(
-	local_id: AnimationId,
-	target: rl.Color,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> rl.Color {
-	ctx := current_context
-	key := animation_key(local_id)
-
-	if state, ok := animation_current(ctx, key); ok {
-		if data, ok := state.data.(AnimationColorData); ok {
-			assert(
-				data.target == target,
-				"same animate id used with conflicting targets in one frame",
-			)
-			return data.value
-		}
-
-		assert(false, "animation id reused with incompatible animation value type")
-		return {}
-	}
-
-	if state, ok := animation_previous(ctx, key); ok {
-		if data, ok := state.data.(AnimationColorData); ok {
-			if data.target != target {
-				data.start = data.value
-				data.target = target
-				animation_start(&state, duration, easing, data.start != data.target)
-			}
-
-			animation_update(ctx, &state, &data)
-			state.data = data
-			animation_store(ctx, key, state)
-			return data.value
-		}
-	}
-
-	data := AnimationColorData {
-		value  = target,
-		start  = target,
-		target = target,
-	}
-	state := AnimationState {
-		elapsed  = 0,
-		duration = max(duration, 0),
-		easing   = easing,
-		active   = false,
-		data     = data,
-	}
-	animation_store(ctx, key, state)
-	return data.value
-}
-
-@(private)
-animate_edges :: proc(
-	local_id: AnimationId,
-	target: Edges,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Edges {
-	ctx := current_context
-	key := animation_key(local_id)
-
-	if state, ok := animation_current(ctx, key); ok {
-		if data, ok := state.data.(AnimationEdgesData); ok {
-			assert(
-				data.target == target,
-				"same animate id used with conflicting targets in one frame",
-			)
-			return data.value
-		}
-
-		assert(false, "animation id reused with incompatible animation value type")
-		return {}
-	}
-
-	if state, ok := animation_previous(ctx, key); ok {
-		if data, ok := state.data.(AnimationEdgesData); ok {
-			if data.target != target {
-				data.start = data.value
-				data.target = target
-				animation_start(&state, duration, easing, data.start != data.target)
-			}
-
-			animation_update(ctx, &state, &data)
-			state.data = data
-			animation_store(ctx, key, state)
-			return data.value
-		}
-	}
-
-	data := AnimationEdgesData {
-		value  = target,
-		start  = target,
-		target = target,
-	}
-	state := AnimationState {
-		elapsed  = 0,
-		duration = max(duration, 0),
-		easing   = easing,
-		active   = false,
-		data     = data,
-	}
-	animation_store(ctx, key, state)
-	return data.value
-}
-
-@(private)
-animate_corners :: proc(
-	local_id: AnimationId,
-	target: Corners,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Corners {
-	ctx := current_context
-	key := animation_key(local_id)
-
-	if state, ok := animation_current(ctx, key); ok {
-		if data, ok := state.data.(AnimationCornersData); ok {
-			assert(
-				data.target == target,
-				"same animate id used with conflicting targets in one frame",
-			)
-			return data.value
-		}
-
-		assert(false, "animation id reused with incompatible animation value type")
-		return {}
-	}
-
-	if state, ok := animation_previous(ctx, key); ok {
-		if data, ok := state.data.(AnimationCornersData); ok {
-			if data.target != target {
-				data.start = data.value
-				data.target = target
-				animation_start(&state, duration, easing, data.start != data.target)
-			}
-
-			animation_update(ctx, &state, &data)
-			state.data = data
-			animation_store(ctx, key, state)
-			return data.value
-		}
-	}
-
-	data := AnimationCornersData {
-		value  = target,
-		start  = target,
-		target = target,
-	}
-	state := AnimationState {
-		elapsed  = 0,
-		duration = max(duration, 0),
-		easing   = easing,
-		active   = false,
-		data     = data,
-	}
-	animation_store(ctx, key, state)
-	return data.value
-}
-
-@(private)
-animate_size :: proc(
-	local_id: AnimationId,
-	target: Size,
-	duration: f32 = DEFAULT_ANIMATION_TIME,
-	easing: ease.Ease = DEFAULT_ANIMATION_EASING,
-) -> Size {
-	ctx := current_context
-	key := animation_key(local_id)
-
-	if state, ok := animation_current(ctx, key); ok {
-		if data, ok := state.data.(AnimationSizeData); ok {
-			assert(
-				data.target == target,
-				"same animate id used with conflicting targets in one frame",
-			)
-			return data.value
-		}
-
-		assert(false, "animation id reused with incompatible animation value type")
-		return {}
-	}
-
-	if state, ok := animation_previous(ctx, key); ok {
-		if data, ok := state.data.(AnimationSizeData); ok {
-			if data.target != target {
-				if data.target.type != target.type {
-					data.value = target
-					data.start = target
-					data.target = target
-					state.active = false
-					state.elapsed = 0
-					state.duration = max(duration, 0)
-					state.easing = easing
+				when T == Size {
+					if data.target.type != target.type {
+						data.value = target
+						data.start = target
+						data.target = target
+						state.active = false
+						state.elapsed = 0
+						state.duration = max(duration, 0)
+						state.easing = easing
+					} else {
+						data.start = data.value
+						data.target = target
+						animation_start(&state, duration, easing, data.start != data.target)
+					}
 				} else {
 					data.start = data.value
 					data.target = target
@@ -849,7 +304,7 @@ animate_size :: proc(
 		}
 	}
 
-	data := AnimationSizeData {
+	data := AnimationValueData(T) {
 		value  = target,
 		start  = target,
 		target = target,
