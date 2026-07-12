@@ -41,6 +41,8 @@ Features:
   - Copy/cut/paste
 - Custom render events
   - Interleave your own rendering with the UI
+- Pointer routing through element subtrees
+  - Non-visual hit slop for thin interaction targets
 - Animation helpers
 
 To do:
@@ -75,6 +77,9 @@ To do:
   - [active()](#active)
   - [clicked()](#clicked)
 	- [focused()](#focused)
+	- [pointer_hovered_within()](#pointer_hovered_within)
+	- [pointer_pressed_within()](#pointer_pressed_within)
+	- [set_hit_slop()](#set_hit_slop)
 - [Animation](#animation)
 - [Element config](#element-config)
   - [Config helpers](#config-helpers)
@@ -408,6 +413,36 @@ if orui.captured("some element") {
   // is capturing input
 }
 ```
+
+### pointer_hovered_within()
+
+Returns true when routed pointer hover belongs to an element or any descendant in its element subtree.
+
+```odin
+if orui.pointer_hovered_within(panel_id) {
+	// Pointer is over panel or nested content.
+}
+```
+
+### pointer_pressed_within()
+
+Returns true on the left-button press frame when ORUI routed that press to an element or any descendant. Higher blocking layers still win.
+
+```odin
+if orui.pointer_pressed_within(panel_id) {
+	// Panel subtree owns this press.
+}
+```
+
+### set_hit_slop()
+
+Expands pointer hit testing around an existing element without changing its layout or rendering bounds. Call after declaring the element in the current frame.
+
+```odin
+orui.set_hit_slop(panel_id, {left = 10, bottom = 10})
+```
+
+Useful for thin borders and resize edges. Exact resize-edge meaning remains caller-owned; hit slop only participates in ORUI hit testing and layer priority.
 
 ## Animation
 
