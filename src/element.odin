@@ -407,6 +407,7 @@ Element :: struct {
 	disabled:          InheritedBool,
 	block:             InheritedBool,
 	capture:           InheritedBool,
+	hit_slop:          Edges,
 	editable:          bool,
 
 	// scroll

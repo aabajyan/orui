@@ -52,6 +52,7 @@ Context :: struct {
 	// mouse input
 	pointer_capture:       i32,
 	pointer_capture_id:    Id,
+	_pointer_pressed:      bool,
 	hover:                 [2]IdBuffer,
 	active:                [2]IdBuffer,
 

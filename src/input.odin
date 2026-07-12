@@ -10,6 +10,25 @@ TEXT_MULTI_CLICK_DISTANCE: f32 : 6
 
 @(private)
 handle_input_state :: proc(ctx: ^Context) {
+	handle_input_state_with(
+		ctx,
+		position = rl.GetMousePosition(),
+		mouse_down = rl.IsMouseButtonDown(.LEFT),
+		pressed = rl.IsMouseButtonPressed(.LEFT),
+		released = rl.IsMouseButtonReleased(.LEFT),
+		scroll = rl.GetMouseWheelMoveV(),
+	)
+}
+
+@(private)
+handle_input_state_with :: proc(
+	ctx: ^Context,
+	position: rl.Vector2,
+	mouse_down: bool = false,
+	pressed: bool = false,
+	released: bool = false,
+	scroll: rl.Vector2 = {},
+) {
 	current := current_buffer(ctx)
 	previous := previous_buffer(ctx)
 	// processing previous frame's elements
@@ -19,13 +38,8 @@ handle_input_state :: proc(ctx: ^Context) {
 
 	sync_focus_element(ctx)
 
-	position := rl.GetMousePosition()
-	mouse_down := rl.IsMouseButtonDown(.LEFT)
-	pressed := rl.IsMouseButtonPressed(.LEFT)
-	released := rl.IsMouseButtonReleased(.LEFT)
-	scroll := rl.GetMouseWheelMoveV()
-
 	ctx.prev_focus_id = ctx.focus_id
+	ctx._pointer_pressed = pressed
 	ctx.hover[current].count = 0
 	ctx.active[current].count = 0
 
@@ -561,7 +575,15 @@ point_in_rect :: proc(p: rl.Vector2, pos: rl.Vector2, size: rl.Vector2) -> bool 
 
 @(private)
 point_in_element :: proc(p: rl.Vector2, element: ^Element) -> bool {
-	if !point_in_rect(p, element._position, element._size) {
+	position := rl.Vector2 {
+		element._position.x - element.hit_slop.left,
+		element._position.y - element.hit_slop.top,
+	}
+	size := rl.Vector2 {
+		element._size.x + element.hit_slop.left + element.hit_slop.right,
+		element._size.y + element.hit_slop.top + element.hit_slop.bottom,
+	}
+	if !point_in_rect(p, position, size) {
 		return false
 	}
 

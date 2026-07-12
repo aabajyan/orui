@@ -48,6 +48,42 @@ hovered_ids :: proc() -> []Id {
 	return ctx.hover[buffer].ids[:ctx.hover[buffer].count]
 }
 
+pointer_hovered_within :: proc(id: Id) -> bool {
+	ctx := current_context
+	buffer := current_buffer(ctx)
+	for target in ctx.hover[buffer].ids[:ctx.hover[buffer].count] {
+		if pointer_target_is_in_subtree(ctx, target, id) do return true
+	}
+
+	return false
+}
+
+pointer_pressed_within :: proc(id: Id) -> bool {
+	ctx := current_context
+	if !ctx._pointer_pressed do return false
+
+	buffer := current_buffer(ctx)
+	for target in ctx.active[buffer].ids[:ctx.active[buffer].count] {
+		if pointer_target_is_in_subtree(ctx, target, id) do return true
+	}
+
+	return false
+}
+
+@(private = "file")
+pointer_target_is_in_subtree :: proc(ctx: ^Context, target, ancestor: Id) -> bool {
+	buffer := previous_buffer(ctx)
+	index, ok := element_index_by_id(ctx, buffer, target)
+	if !ok do return false
+
+	elements := &ctx.elements[buffer]
+	for {
+		if elements[index].id == ancestor do return true
+		if index == 0 do return false
+		index = elements[index].parent
+	}
+}
+
 @(private)
 // Whether the mouse is over the current element.
 // Should only be used inside an element declaration.
@@ -337,6 +373,18 @@ _scroll_offset_id :: proc(id: Id) -> rl.Vector2 {
 set_scroll_offset :: proc {
 	_set_scroll_offset,
 	_set_scroll_offset_id,
+}
+
+set_hit_slop :: proc(id: Id, hit_slop: Edges) {
+	ctx := current_context
+	elements := &ctx.elements[current_buffer(ctx)]
+	count := ctx.element_count[current_buffer(ctx)]
+	for i in 0 ..< count {
+		if elements[i].id == id {
+			elements[i].hit_slop = hit_slop
+			return
+		}
+	}
 }
 
 @(private)
