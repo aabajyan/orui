@@ -2,6 +2,56 @@ package orui
 
 import rl "vendor:raylib"
 
+Pointer_Response_Flag :: enum {
+	Hovered,
+	Pressed,
+	Held,
+	Released,
+	Clicked,
+}
+
+Pointer_Response :: bit_set[Pointer_Response_Flag;u8]
+
+pointer_response :: proc(id: Id, button: rl.MouseButton = .LEFT) -> Pointer_Response {
+	ctx := current_context
+	response: Pointer_Response
+	owner_routes_to_id :=
+		ctx.pointer_owner_id != 0 && pointer_target_is_in_subtree(ctx, ctx.pointer_owner_id, id)
+	hover_routes_to_id :=
+		ctx.pointer_hover_id != 0 && pointer_target_is_in_subtree(ctx, ctx.pointer_hover_id, id)
+	if hover_routes_to_id && (ctx.pointer_owner_id == 0 || owner_routes_to_id) {
+		response += {.Hovered}
+	}
+
+	if ctx.pointer_pressed_id != 0 &&
+	   ctx.pointer_pressed_button == button &&
+	   pointer_target_is_in_subtree(ctx, ctx.pointer_pressed_id, id) {
+		response += {.Pressed}
+	}
+
+	if owner_routes_to_id && ctx.pointer_owner_button == button {
+		response += {.Held}
+	}
+
+	if ctx.pointer_released_id != 0 &&
+	   ctx.pointer_released_button == button &&
+	   pointer_target_is_in_subtree(ctx, ctx.pointer_released_id, id) {
+		response += {.Released}
+	}
+
+	if ctx.pointer_clicked_id != 0 &&
+	   ctx.pointer_released_button == button &&
+	   pointer_target_is_in_subtree(ctx, ctx.pointer_clicked_id, id) {
+		response += {.Clicked}
+	}
+
+	return response
+}
+
+pointer_position :: proc() -> rl.Vector2 {
+	return current_context.pointer_position
+}
+
 bounding_rect :: proc {
 	_bounding_rect,
 	_bounding_rect_string,
@@ -36,41 +86,7 @@ _bounding_rect_id :: proc(id: Id) -> rl.Rectangle {
 	}
 }
 
-hovered :: proc {
-	_hovered,
-	_hovered_string,
-	_hovered_id,
-}
-
-hovered_ids :: proc() -> []Id {
-	ctx := current_context
-	buffer := current_buffer(ctx)
-	return ctx.hover[buffer].ids[:ctx.hover[buffer].count]
-}
-
-pointer_hovered_within :: proc(id: Id) -> bool {
-	ctx := current_context
-	buffer := current_buffer(ctx)
-	for target in ctx.hover[buffer].ids[:ctx.hover[buffer].count] {
-		if pointer_target_is_in_subtree(ctx, target, id) do return true
-	}
-
-	return false
-}
-
-pointer_pressed_within :: proc(id: Id) -> bool {
-	ctx := current_context
-	if !ctx._pointer_pressed do return false
-
-	buffer := current_buffer(ctx)
-	for target in ctx.active[buffer].ids[:ctx.active[buffer].count] {
-		if pointer_target_is_in_subtree(ctx, target, id) do return true
-	}
-
-	return false
-}
-
-@(private = "file")
+@(private)
 pointer_target_is_in_subtree :: proc(ctx: ^Context, target, ancestor: Id) -> bool {
 	buffer := previous_buffer(ctx)
 	index, ok := element_index_by_id(ctx, buffer, target)
@@ -82,106 +98,6 @@ pointer_target_is_in_subtree :: proc(ctx: ^Context, target, ancestor: Id) -> boo
 		if index == 0 do return false
 		index = elements[index].parent
 	}
-}
-
-@(private)
-// Whether the mouse is over the current element.
-// Should only be used inside an element declaration.
-_hovered :: proc() -> bool {
-	if current_context.current == 0 do return false
-	return _hovered_id(current_context.current_id)
-}
-
-@(private)
-// Whether the mouse is over the element with the given ID.
-_hovered_string :: proc(id: string) -> bool {
-	return _hovered_id(to_id(id))
-}
-
-@(private)
-_hovered_id :: proc(id: Id) -> bool {
-	for hid in hovered_ids() {
-		if hid == id do return true
-	}
-
-	return false
-}
-
-// Whether an element is active (mouse down).
-active :: proc {
-	_active,
-	_active_string,
-	_active_id,
-}
-
-@(private)
-// Whether the current element is active (mouse down).
-_active :: proc() -> bool {
-	ctx := current_context
-	if ctx.current == 0 {
-		return false
-	}
-
-	buffer := previous_buffer(ctx)
-	count := ctx.active[buffer].count
-	for i: i32 = 0; i < count; i += 1 {
-		if ctx.active[buffer].ids[i] == ctx.current_id {
-			return true
-		}
-	}
-
-	return false
-}
-
-@(private)
-// Whether the specified element is active (mouse down).
-_active_string :: proc(id: string) -> bool {
-	ctx := current_context
-	id := to_id(id)
-	buffer := previous_buffer(ctx)
-	count := ctx.active[buffer].count
-	for i: i32 = 0; i < count; i += 1 {
-		if ctx.active[buffer].ids[i] == id {
-			return true
-		}
-	}
-
-	return false
-}
-
-@(private)
-_active_id :: proc(id: Id) -> bool {
-	ctx := current_context
-	buffer := previous_buffer(ctx)
-	count := ctx.active[buffer].count
-	for i: i32 = 0; i < count; i += 1 {
-		if ctx.active[buffer].ids[i] == id {
-			return true
-		}
-	}
-	return false
-}
-
-clicked :: proc {
-	_clicked,
-	_clicked_string,
-	_clicked_id,
-}
-
-@(private)
-// Whether the current element has been clicked this frame.
-_clicked :: proc() -> bool {
-	return rl.IsMouseButtonReleased(.LEFT) && active()
-}
-
-@(private)
-_clicked_string :: proc(id: string) -> bool {
-	return rl.IsMouseButtonReleased(.LEFT) && active(id)
-}
-
-@(private)
-_clicked_id :: proc(id: Id) -> bool {
-	return rl.IsMouseButtonReleased(.LEFT) && active(id)
 }
 
 focused :: proc {
@@ -211,31 +127,6 @@ _focused_string :: proc(id: string) -> bool {
 _focused_id :: proc(id: Id) -> bool {
 	ctx := current_context
 	return ctx.focus_id == id
-}
-
-captured :: proc {
-	_captured,
-	_captured_string,
-	_captured_id,
-}
-
-@(private)
-_captured :: proc() -> bool {
-	ctx := current_context
-	return ctx.pointer_capture_id == ctx.current_id
-}
-
-@(private)
-_captured_string :: proc(id: string) -> bool {
-	ctx := current_context
-	id := to_id(id)
-	return ctx.pointer_capture_id == id
-}
-
-@(private)
-_captured_id :: proc(id: Id) -> bool {
-	ctx := current_context
-	return ctx.pointer_capture_id == id
 }
 
 padding :: proc {

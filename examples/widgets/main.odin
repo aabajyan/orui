@@ -137,11 +137,12 @@ _button :: proc(id: string, label: string, modifiers: ..orui.ElementModifier) ->
 }
 
 _button_id :: proc(id: orui.Id, label: string, modifiers: ..orui.ElementModifier) -> bool {
+	response := orui.pointer_response(id)
 	return orui.label(
 		orui.id(id),
 		label,
 		{
-			background_color = orui.active() ? {220, 190, 170, 255} : orui.hovered() ? {250, 220, 200, 255} : {240, 210, 190, 255},
+			background_color = .Held in response ? {220, 190, 170, 255} : .Hovered in response ? {250, 220, 200, 255} : {240, 210, 190, 255},
 			border = orui.border(1),
 			border_color = {100, 100, 100, 255},
 			corner_radius = orui.corner(4),
@@ -155,7 +156,7 @@ _button_id :: proc(id: orui.Id, label: string, modifiers: ..orui.ElementModifier
 }
 
 tooltip :: proc(id: string, label: string, modifiers: ..orui.ElementModifier) {
-	if orui.hovered(id) {
+	if .Hovered in orui.pointer_response(orui.to_id(id)) {
 		orui.label(
 			orui.id(id, 1),
 			label,
@@ -184,6 +185,7 @@ toggle_button :: proc(
 	toggle_state: ^bool,
 	modifiers: ..orui.ElementModifier,
 ) {
+	response := orui.pointer_response(orui.to_id(id))
 	highlight_color := toggle_state^ ? rl.Color{120, 200, 120, 255} : rl.Color{200, 120, 120, 255}
 	normal_color := toggle_state^ ? rl.Color{100, 180, 100, 255} : rl.Color{180, 100, 100, 255}
 
@@ -193,7 +195,7 @@ toggle_button :: proc(
 		{
 			font_size = 16,
 			padding = orui.padding(10, 8),
-			background_color = orui.hovered() ? highlight_color : normal_color,
+			background_color = .Hovered in response ? highlight_color : normal_color,
 			color = rl.WHITE,
 			border = orui.border(1),
 			border_color = {100, 100, 100, 255},
@@ -214,13 +216,15 @@ toggle_buttons :: proc(id: string, labels: []string, toggle_state: ^int) {
 	orui.container(orui.id(id), {})
 
 	for label, i in labels {
+		item_id := orui.to_id(id, i)
+		response := orui.pointer_response(item_id)
 		if orui.label(
-			orui.id(id, i),
+			orui.id(item_id),
 			label,
 			{
 				font_size = 16,
 				padding = orui.padding(10, 8),
-				background_color = toggle_state^ == i ? highlight_color : orui.active() ? active_color : orui.hovered() ? hovered_color : normal_color,
+				background_color = toggle_state^ == i ? highlight_color : .Held in response ? active_color : .Hovered in response ? hovered_color : normal_color,
 				color = rl.BLACK,
 				border = orui.border(1),
 				border_color = {100, 100, 100, 255},
@@ -254,9 +258,10 @@ dropdown :: proc(
 	}
 
 	if open_state^ {
+		content_id := orui.to_id(id, 2)
 		// this container holds the dropdown options
 		orui.container(
-			orui.id(id, 2),
+			orui.id(content_id),
 			{
 				position = {.Absolute, {}},
 				placement = orui.placement(.Bottom, .Top),
@@ -280,7 +285,9 @@ dropdown :: proc(
 		}
 	}
 
-	if !just_opened && rl.IsMouseButtonReleased(.LEFT) && !orui.hovered("dropdown content") {
+	root_response := orui.pointer_response(orui.to_id("root"))
+	content_response := orui.pointer_response(orui.to_id(id, 2))
+	if !just_opened && .Released in root_response && .Hovered not_in content_response {
 		open_state^ = false
 	}
 
@@ -288,8 +295,10 @@ dropdown :: proc(
 }
 
 checkbox :: proc(id: string, label: string, checked_state: ^bool) {
+	container_id := orui.to_id(id)
+	response := orui.pointer_response(container_id)
 	orui.container(
-		orui.id(id),
+		orui.id(container_id),
 		{
 			direction = .LeftToRight,
 			gap = 8,
@@ -300,7 +309,7 @@ checkbox :: proc(id: string, label: string, checked_state: ^bool) {
 	)
 
 	// listen for clicks on the container, not the checkbox/label
-	if orui.clicked(id) {
+	if .Clicked in response {
 		checked_state^ = !checked_state^
 	}
 
@@ -321,7 +330,7 @@ checkbox :: proc(id: string, label: string, checked_state: ^bool) {
 				{
 					width = orui.grow(),
 					height = orui.grow(),
-					background_color = checked_state^ ? {200, 120, 120, 255} : orui.hovered("checkbox container") ? rl.LIGHTGRAY : {},
+					background_color = checked_state^ ? {200, 120, 120, 255} : .Hovered in response ? rl.LIGHTGRAY : {},
 					corner_radius = orui.corner(2),
 				},
 			)}

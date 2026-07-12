@@ -328,10 +328,6 @@ ElementConfig :: struct {
 	// Whether the element will consume mouse interactions, blocking elements below it from receiving them.
 	// Inherited from parent by default.
 	block:            InheritedBool,
-	// Whether the element will consume interactions once they are activated.
-	// Recommended to be set to True for things like sliders and draggable windows.
-	// Inherited from parent by default.
-	capture:          InheritedBool,
 	editable:         bool,
 
 	// Scroll configuration
@@ -406,7 +402,6 @@ Element :: struct {
 	// input
 	disabled:          InheritedBool,
 	block:             InheritedBool,
-	capture:           InheritedBool,
 	hit_slop:          Edges,
 	editable:          bool,
 
@@ -530,7 +525,6 @@ configure_element :: proc(
 	// input
 	element.disabled = config.disabled == .Inherit ? parent.disabled : config.disabled
 	element.block = config.block == .Inherit ? parent.block : config.block
-	element.capture = config.capture == .Inherit ? parent.capture : config.capture
 	element.editable = config.editable
 
 	// scroll

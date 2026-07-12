@@ -9,8 +9,9 @@ text_input: strings.Builder
 UNICODE_TEXT_SAMPLE :: "Greek: Γεια σου\nEmoji symbols: ☀ ★ ❤ ⚠ ✓"
 
 button_style :: proc(element: ^orui.Element) {
+	response := orui.pointer_response(element.id)
 	element.background_color =
-		orui.active() ? {220, 190, 170, 255} : orui.hovered() ? {250, 220, 200, 255} : {240, 210, 190, 255}
+		.Held in response ? {220, 190, 170, 255} : .Hovered in response ? {250, 220, 200, 255} : {240, 210, 190, 255}
 	element.border = orui.border(1)
 	element.border_color = {100, 100, 100, 255}
 	element.corner_radius = orui.corner(4)
@@ -82,20 +83,22 @@ render_test_text :: proc() {
 		button_style,
 	)
 
+	input_id := orui.id("text input")
+	input_response := orui.pointer_response(input_id)
 	orui.text_input(
-		orui.id("text input"),
+		input_id,
 		&text_input,
 		{
 			width = orui.fixed(300),
 			padding = orui.padding(8),
-			background_color = orui.hovered() || orui.focused() ? rl.WHITE : {240, 240, 240, 255},
+			background_color = .Hovered in input_response || orui.focused(input_id) ? rl.WHITE : {240, 240, 240, 255},
 			color = rl.BLACK,
 			font_size = 16,
 			overflow = .Visible,
 			clip = {.Self, {}},
 			scroll = orui.scroll(.Horizontal),
 			border = orui.border(1),
-			border_color = orui.focused() ? rl.BLACK : rl.LIGHTGRAY,
+			border_color = orui.focused(input_id) ? rl.BLACK : rl.LIGHTGRAY,
 		},
 	)
 

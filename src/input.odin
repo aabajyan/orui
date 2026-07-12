@@ -7,17 +7,114 @@ import rl "vendor:raylib"
 
 TEXT_MULTI_CLICK_TIME: f64 : 0.5
 TEXT_MULTI_CLICK_DISTANCE: f32 : 6
+POINTER_BUTTON_COUNT :: int(rl.MouseButton.BACK) + 1
+
+Pointer_Event_Kind :: enum {
+	Pressed,
+	Released,
+}
+
+Pointer_Event :: struct {
+	button: rl.MouseButton,
+	kind:   Pointer_Event_Kind,
+}
+
+Input_Frame :: struct {
+	pointer_position: rl.Vector2,
+	scroll:           rl.Vector2,
+	pointer_events:   []Pointer_Event,
+}
 
 @(private)
 handle_input_state :: proc(ctx: ^Context) {
+	events: [POINTER_BUTTON_COUNT * 2]Pointer_Event
+	event_count := 0
+	for button in rl.MouseButton {
+		if rl.IsMouseButtonPressed(button) {
+			events[event_count] = {
+				button = button,
+				kind   = .Pressed,
+			}
+			event_count += 1
+		}
+		button_index := int(button)
+		if rl.IsMouseButtonReleased(button) ||
+		   (ctx.pointer_buttons_down[button_index] && !rl.IsMouseButtonDown(button)) {
+			events[event_count] = {
+				button = button,
+				kind   = .Released,
+			}
+			event_count += 1
+		}
+	}
+
+	handle_input_frame(
+		ctx,
+		{
+			pointer_position = rl.GetMousePosition(),
+			scroll = rl.GetMouseWheelMoveV(),
+			pointer_events = events[:event_count],
+		},
+	)
+}
+
+@(private)
+handle_input_frame :: proc(ctx: ^Context, input: Input_Frame) {
+	left_released := false
+	for event in input.pointer_events {
+		button := int(event.button)
+		assert(button >= 0 && button < len(ctx.pointer_buttons_down))
+		switch event.kind {
+		case .Pressed:
+			ctx.pointer_buttons_down[button] = true
+		case .Released:
+			ctx.pointer_buttons_down[button] = false
+			if event.button == .LEFT do left_released = true
+		}
+	}
+
 	handle_input_state_with(
 		ctx,
-		position = rl.GetMousePosition(),
-		mouse_down = rl.IsMouseButtonDown(.LEFT),
-		pressed = rl.IsMouseButtonPressed(.LEFT),
-		released = rl.IsMouseButtonReleased(.LEFT),
-		scroll = rl.GetMouseWheelMoveV(),
+		position = input.pointer_position,
+		mouse_down = ctx.pointer_buttons_down[int(rl.MouseButton.LEFT)],
+		released = left_released,
+		scroll = input.scroll,
 	)
+	update_pointer_response(ctx, input)
+	if ctx.pointer_pressed_id != 0 && ctx.pointer_pressed_button == .LEFT {
+		handle_pointer_focus(ctx, input.pointer_position)
+	}
+	handle_keyboard_input(ctx)
+}
+
+@(private)
+update_pointer_response :: proc(ctx: ^Context, input: Input_Frame) {
+	ctx.pointer_position = input.pointer_position
+	ctx.pointer_pressed_id = 0
+	ctx.pointer_released_id = 0
+	ctx.pointer_clicked_id = 0
+
+	for event in input.pointer_events {
+		switch event.kind {
+		case .Pressed:
+			if ctx.pointer_owner_id == 0 && ctx.pointer_hover_id != 0 {
+				ctx.pointer_owner_id = ctx.pointer_hover_id
+				ctx.pointer_owner_button = event.button
+				ctx.pointer_pressed_id = ctx.pointer_owner_id
+				ctx.pointer_pressed_button = event.button
+			}
+		case .Released:
+			if ctx.pointer_owner_id != 0 && ctx.pointer_owner_button == event.button {
+				ctx.pointer_released_id = ctx.pointer_owner_id
+				ctx.pointer_released_button = event.button
+				if ctx.pointer_hover_id != 0 &&
+				   pointer_target_is_in_subtree(ctx, ctx.pointer_hover_id, ctx.pointer_owner_id) {
+					ctx.pointer_clicked_id = ctx.pointer_owner_id
+				}
+				ctx.pointer_owner_id = 0
+			}
+		}
+	}
 }
 
 @(private)
@@ -25,11 +122,9 @@ handle_input_state_with :: proc(
 	ctx: ^Context,
 	position: rl.Vector2,
 	mouse_down: bool = false,
-	pressed: bool = false,
 	released: bool = false,
 	scroll: rl.Vector2 = {},
 ) {
-	current := current_buffer(ctx)
 	previous := previous_buffer(ctx)
 	// processing previous frame's elements
 	// input runs at the start of the frame, before the current frame's elements are declared
@@ -39,35 +134,19 @@ handle_input_state_with :: proc(
 	sync_focus_element(ctx)
 
 	ctx.prev_focus_id = ctx.focus_id
-	ctx._pointer_pressed = pressed
-	ctx.hover[current].count = 0
-	ctx.active[current].count = 0
+	ctx.pointer_hover_id = 0
 
 	if released {
-		ctx.pointer_capture = 0
-		ctx.pointer_capture_id = 0
 		if ctx.focus != 0 && ctx.caret_index == -1 {
 			ctx.caret_index = text_caret_from_point(ctx, &elements[ctx.focus], position)
 		}
 	}
 
-	// if ctx.pointer_capture != 0 && mouse_down {
-	// 	el := &elements[ctx.pointer_capture]
-	// 	count := ctx.active[current].count
-	// 	ctx.active[current].ids[count] = el.id
-	// 	ctx.active[current].count += 1
-	// 	return
-	// }
-
 	scroll_consumed := false
-	click_consumed := false
+	target_found := false
 
 	for i := ctx.sorted_count - 1; i >= 0; i -= 1 {
 		element := &elements[ctx.sorted[i]]
-
-		if ctx.pointer_capture != 0 && ctx.pointer_capture != ctx.sorted[i] {
-			continue
-		}
 
 		if element.disabled == .True {
 			continue
@@ -114,64 +193,12 @@ handle_input_state_with :: proc(
 			}
 		}
 
-		if !click_consumed {
-			hover_count := ctx.hover[current].count
-			ctx.hover[current].ids[hover_count] = element.id
-			ctx.hover[current].count += 1
-
-			already_active := false
-			for active_index: i32 = 0;
-			    active_index < ctx.active[previous].count;
-			    active_index += 1 {
-				if ctx.active[previous].ids[active_index] == element.id {
-					already_active = true
-					break
-				}
-			}
-
-			if mouse_down && (pressed || already_active) {
-				active_count := ctx.active[current].count
-				ctx.active[current].ids[active_count] = element.id
-				ctx.active[current].count += 1
-
-				if pressed {
-					if element.editable {
-						if ctx.focus == ctx.sorted[i] &&
-						   (ctx.selecting ||
-								   rl.IsKeyDown(.LEFT_SHIFT) ||
-								   rl.IsKeyDown(.RIGHT_SHIFT)) {
-							// handle text selection with drag or shift click
-							ctx.text_selection_mode = .Character
-							ctx.text_selection.end = text_caret_from_point(ctx, element, position)
-							ctx.caret_index = ctx.text_selection.end
-							ctx.caret_time = 0
-							ensure_caret_visible(ctx, element, ctx.caret_index)
-						} else {
-							ctx.focus = ctx.sorted[i]
-							ctx.focus_id = element.id
-							click_count := next_text_click_count(ctx, element.id, position)
-							ctx.selecting = true
-							start_text_click_selection(ctx, element, position, click_count)
-						}
-					} else if ctx.focus != 0 {
-						clear_focus(ctx)
-					} else {
-						clear_text_click_state(ctx)
-					}
-				}
-
-				if element.capture == .True {
-					ctx.pointer_capture = ctx.sorted[i]
-					ctx.pointer_capture_id = element.id
-				}
-			}
-
-			if element.block == .True {
-				click_consumed = true
-			}
+		if !target_found && element.block == .True {
+			target_found = true
+			ctx.pointer_hover_id = element.id
 		}
 
-		if scroll_consumed && click_consumed {
+		if scroll_consumed && target_found {
 			break
 		}
 	}
@@ -185,7 +212,35 @@ handle_input_state_with :: proc(
 		ctx.selecting = false
 	}
 
-	handle_keyboard_input(ctx)
+}
+
+@(private)
+handle_pointer_focus :: proc(ctx: ^Context, position: rl.Vector2) {
+	buffer := previous_buffer(ctx)
+	target_index, ok := element_index_by_id(ctx, buffer, ctx.pointer_pressed_id)
+	if !ok do return
+
+	element := &ctx.elements[buffer][target_index]
+	if element.editable {
+		if ctx.focus == target_index &&
+		   (ctx.selecting || rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT)) {
+			ctx.text_selection_mode = .Character
+			ctx.text_selection.end = text_caret_from_point(ctx, element, position)
+			ctx.caret_index = ctx.text_selection.end
+			ctx.caret_time = 0
+			ensure_caret_visible(ctx, element, ctx.caret_index)
+		} else {
+			ctx.focus = target_index
+			ctx.focus_id = element.id
+			click_count := next_text_click_count(ctx, element.id, position)
+			ctx.selecting = true
+			start_text_click_selection(ctx, element, position, click_count)
+		}
+	} else if ctx.focus != 0 {
+		clear_focus(ctx)
+	} else {
+		clear_text_click_state(ctx)
+	}
 }
 
 @(private)

@@ -73,12 +73,9 @@ To do:
   - [image](#imageid-config-modifiers)
   - [scrollbar](#scrollbarparent_id-background_config-handle_config-index--0)
 - [Other functions](#other-functions)
-  - [hovered()](#hovered)
-  - [active()](#active)
-  - [clicked()](#clicked)
+	- [pointer_response()](#pointer_response)
+	- [pointer_position()](#pointer_position)
 	- [focused()](#focused)
-	- [pointer_hovered_within()](#pointer_hovered_within)
-	- [pointer_pressed_within()](#pointer_pressed_within)
 	- [set_hit_slop()](#set_hit_slop)
 - [Animation](#animation)
 - [Element config](#element-config)
@@ -235,8 +232,10 @@ orui.label(orui.id("label"), "Hello world!", {
 A label element can also be used as a button by changing its style when the user interacts with it:
 
 ```odin
-if orui.label(orui.id("button"), "Button text", {
-  background_color = orui.active() ? {100, 100, 100, 255} : orui.hovered() ? {120, 120, 120, 255} : {30, 30, 30, 255},
+button_id := orui.to_id("button")
+response := orui.pointer_response(button_id)
+if orui.label(orui.id(button_id), "Button text", {
+  background_color = .Held in response ? {100, 100, 100, 255} : .Hovered in response ? {120, 120, 120, 255} : {30, 30, 30, 255},
 }) {
   // handle button click
 }
@@ -330,58 +329,31 @@ orui.scrollbar(orui.to_id("container id"), {
 
 ## Other functions
 
-### hovered()
+### pointer_response()
 
-Returns true if the mouse is hovering over the current element. Should be used inside element declarations only:
-
-```odin
-orui.label(orui.id("label"), "Test", {
-  background_color = orui.hovered() ? rl.RED : rl.BLACK
-})
-```
-
-If you want to check the hover state of an element oustide of the element declaration, you can pass the element ID into the hovered function:
+Returns the routed pointer state for an element ID and its descendants:
 
 ```odin
-if orui.hovered("label") {
-  // mouse is over the element
+response := orui.pointer_response(label_id)
+if .Pressed in response {
+	// label or a descendant received the press
+}
+if .Held in response {
+	// the same interaction is still owned, even outside its bounds
+}
+if .Clicked in response {
+	// the owning button was released back inside
 }
 ```
 
-### active()
+The response flags are `Hovered`, `Pressed`, `Held`, `Released`, and `Clicked`. Pass a mouse button as the second argument when querying non-left interactions. Only one initiating button owns an interaction until it releases. While held, unrelated elements do not report ordinary hover.
 
-Returns true if the element is active (mouse down on the element). If the mouse moves off the element while the mouse is down, the element will become inactive.
+### pointer_position()
 
-```odin
-orui.label(orui.id("label"), "Test", {
-  background_color = orui.active() ? rl.RED : rl.BLACK
-})
-```
-
-Same as the hover function, you can ask about a specific element by passing in the ID:
+Returns the pointer position from the same input snapshot used for routing:
 
 ```odin
-if orui.active("label") {
-  // label is active
-}
-```
-
-### clicked()
-
-Returns true if the element has been clicked. A click is only triggered if the element was both hovered and active when the mouse was released. This means dragging the mouse off an element will cancel the click.
-
-```odin
-orui.label(orui.id("label"), "Test", {
-  background_color = orui.clicked() ? rl.RED : rl.BLACK
-})
-```
-
-You can ask about a specific element by passing in the ID:
-
-```odin
-if orui.clicked("label") {
-  // label was clicked
-}
+mouse := orui.pointer_position()
 ```
 
 ### focused()
@@ -400,40 +372,6 @@ if orui.focused("input element") {
 }
 ```
 
-### captured()
-
-Returns true if an element has captured mouse input. This means the left mouse button is currently held down, and until it's released, only the capturing element will handle mouse input.
-
-This is useful for scrollbar/slider handles, moveable windows/dialogs, etc.
-
-You can ask about a specific element by passing in the ID:
-
-```odin
-if orui.captured("some element") {
-  // is capturing input
-}
-```
-
-### pointer_hovered_within()
-
-Returns true when routed pointer hover belongs to an element or any descendant in its element subtree.
-
-```odin
-if orui.pointer_hovered_within(panel_id) {
-	// Pointer is over panel or nested content.
-}
-```
-
-### pointer_pressed_within()
-
-Returns true on the left-button press frame when ORUI routed that press to an element or any descendant. Higher blocking layers still win.
-
-```odin
-if orui.pointer_pressed_within(panel_id) {
-	// Panel subtree owns this press.
-}
-```
-
 ### set_hit_slop()
 
 Expands pointer hit testing around an existing element without changing its layout or rendering bounds. Call after declaring the element in the current frame.
@@ -449,23 +387,25 @@ Useful for thin borders and resize edges. Exact resize-edge meaning remains call
 Use `transition` when you have a boolean trigger:
 
 ```odin
-orui.label(orui.id("button"), "Button", {
+button_id := orui.to_id("button")
+response := orui.pointer_response(button_id)
+orui.label(orui.id(button_id), "Button", {
 	// background transitions from white to light gray when hovered over
-	background_color = orui.transition("background", orui.hovered(), rl.WHITE, rl.LIGHTGRAY),
+	background_color = orui.transition("background", .Hovered in response, rl.WHITE, rl.LIGHTGRAY),
 
 	// border transitions from 1px to 3px when input is active
-	border = orui.transition("border", orui.active(), orui.border(1), orui.border(3)),
+	border = orui.transition("border", .Held in response, orui.border(1), orui.border(3)),
 })
 ```
 
 You can also get only the transition factor and use it for multiple values:
 
 ```odin
-// Be careful: this transition is owned by the surrounding element, NOT the label below it.
-// Animation IDs should be unique within an element.
-hover_t := orui.transition("button1 hover", orui.hovered())
+button_id := orui.to_id("button1")
+response := orui.pointer_response(button_id)
+hover_t := orui.transition("button1 hover", .Hovered in response)
 
-orui.label(orui.id("button1"), "Button", {
+orui.label(orui.id(button_id), "Button", {
 	background_color = orui.lerp(rl.WHITE, rl.LIGHTGRAY, hover_t),
 	padding = orui.lerp(orui.padding(8), orui.padding(12), hover_t),
 })
@@ -479,14 +419,16 @@ This keeps multi-state styles easy. You can use normal logic to decide which sta
 
 ```odin
 target_bg := rl.WHITE
+row_id := orui.to_id("row", i)
+response := orui.pointer_response(row_id)
 if selected {
 	target_bg = {210, 230, 255, 255}
 }
-if orui.hovered() {
+if .Hovered in response {
 	target_bg = rl.LIGHTGRAY
 }
 
-orui.label(orui.id("row", i), text, {
+orui.label(orui.id(row_id), text, {
 	background_color = orui.animate("background", target_bg),
 })
 ```

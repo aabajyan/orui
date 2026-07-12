@@ -18,59 +18,59 @@ when ODIN_OS == .Darwin {
 @(thread_local)
 current_context: ^Context
 
-IdBuffer :: struct {
-	ids:   [MAX_ELEMENTS]Id,
-	count: i32,
-}
-
 Context :: struct {
-	arena:                 [2]virtual.Arena,
-	allocator:             [2]runtime.Allocator,
-	elements:              [2][MAX_ELEMENTS]Element,
-	grid_states:           [2][dynamic]GridState,
-	element_count:         [2]i32,
-	frame:                 int,
-	time:                  f64,
-	dt:                    f32,
-	default_font:          rl.Font,
-	text_cache:            [2]map[TextCacheKey]TextCache,
-	text_width_cache:      [2]map[TextWidthKey]f32,
-	animation_states:      [2]map[AnimationId]AnimationState,
-	sorted:                [MAX_ELEMENTS]i32,
-	sorted_count:          i32,
-	axis_items:            [MAX_ELEMENTS]AxisAllocationItem,
-	axis_breakpoints:      [MAX_ELEMENTS]AxisBreakpoint,
-	render_commands:       [MAX_COMMANDS]RenderCommand,
-	render_command_count:  int,
+	arena:                   [2]virtual.Arena,
+	allocator:               [2]runtime.Allocator,
+	elements:                [2][MAX_ELEMENTS]Element,
+	grid_states:             [2][dynamic]GridState,
+	element_count:           [2]i32,
+	frame:                   int,
+	time:                    f64,
+	dt:                      f32,
+	default_font:            rl.Font,
+	text_cache:              [2]map[TextCacheKey]TextCache,
+	text_width_cache:        [2]map[TextWidthKey]f32,
+	animation_states:        [2]map[AnimationId]AnimationState,
+	sorted:                  [MAX_ELEMENTS]i32,
+	sorted_count:            i32,
+	axis_items:              [MAX_ELEMENTS]AxisAllocationItem,
+	axis_breakpoints:        [MAX_ELEMENTS]AxisBreakpoint,
+	render_commands:         [MAX_COMMANDS]RenderCommand,
+	render_command_count:    int,
 
 	// current element index - used while building up the UI
-	current:               i32,
-	current_id:            Id,
-	previous:              i32,
-	parent:                i32,
+	current:                 i32,
+	current_id:              Id,
+	previous:                i32,
+	parent:                  i32,
 
 	// mouse input
-	pointer_capture:       i32,
-	pointer_capture_id:    Id,
-	_pointer_pressed:      bool,
-	hover:                 [2]IdBuffer,
-	active:                [2]IdBuffer,
+	pointer_position:        rl.Vector2,
+	pointer_buttons_down:    [POINTER_BUTTON_COUNT]bool,
+	pointer_owner_id:        Id,
+	pointer_owner_button:    rl.MouseButton,
+	pointer_hover_id:        Id,
+	pointer_pressed_id:      Id,
+	pointer_pressed_button:  rl.MouseButton,
+	pointer_released_id:     Id,
+	pointer_released_button: rl.MouseButton,
+	pointer_clicked_id:      Id,
 
 	// text input
-	focus:                 i32,
-	focus_id:              Id,
-	prev_focus_id:         Id,
-	caret_index:           int,
-	caret_position:        rl.Vector2,
-	caret_time:            f32,
-	text_selection:        TextSelection,
-	selecting:             bool,
-	text_selection_mode:   TextSelectionMode,
-	text_selection_anchor: TextSelection,
-	text_click_id:         Id,
-	text_click_time:       f64,
-	text_click_position:   rl.Vector2,
-	text_click_count:      int,
+	focus:                   i32,
+	focus_id:                Id,
+	prev_focus_id:           Id,
+	caret_index:             int,
+	caret_position:          rl.Vector2,
+	caret_time:              f32,
+	text_selection:          TextSelection,
+	selecting:               bool,
+	text_selection_mode:     TextSelectionMode,
+	text_selection_anchor:   TextSelection,
+	text_click_id:           Id,
+	text_click_time:         f64,
+	text_click_position:     rl.Vector2,
+	text_click_count:        int,
 }
 
 init :: proc(ctx: ^Context) {
@@ -117,6 +117,15 @@ begin_int :: proc(ctx: ^Context, #any_int width, height: int, dt: f32 = 0) {
 
 @(private)
 _begin :: proc(ctx: ^Context, width: f32, height: f32, dt: f32) {
+	_begin_frame(ctx, width, height, dt, {}, false)
+}
+
+begin_with_input :: proc(ctx: ^Context, width, height, dt: f32, input: Input_Frame) {
+	_begin_frame(ctx, width, height, dt, input, true)
+}
+
+@(private)
+_begin_frame :: proc(ctx: ^Context, width, height, dt: f32, input: Input_Frame, use_input: bool) {
 	current_context = ctx
 
 	ctx.frame += 1
@@ -128,7 +137,11 @@ _begin :: proc(ctx: ^Context, width: f32, height: f32, dt: f32) {
 	ctx.grid_states[i] = make([dynamic]GridState, ctx.allocator[i])
 	ctx.animation_states[i] = make(map[AnimationId]AnimationState, 256, ctx.allocator[i])
 
-	handle_input_state(ctx)
+	if use_input {
+		handle_input_frame(ctx, input)
+	} else {
+		handle_input_state(ctx)
+	}
 
 	elements := &ctx.elements[current_buffer(ctx)]
 	element_count := &ctx.element_count[current_buffer(ctx)]
@@ -144,7 +157,6 @@ _begin :: proc(ctx: ^Context, width: f32, height: f32, dt: f32) {
 		layer       = 1,
 		disabled    = .False,
 		block       = .True,
-		capture     = .False,
 		_grid_state = -1,
 	}
 	element_count^ += 1

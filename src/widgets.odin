@@ -47,7 +47,7 @@ label :: proc(
 
 	end_element()
 
-	return clicked()
+	return .Clicked in pointer_response(id)
 }
 
 // A text element that displays text and allows the user to edit it.
@@ -103,7 +103,7 @@ image :: proc(
 
 	end_element()
 
-	return clicked()
+	return .Clicked in pointer_response(id)
 }
 
 scrollbar :: proc(
@@ -121,7 +121,6 @@ scrollbar :: proc(
 	background_element, background_parent := begin_element(id(background_id), loc)
 	configure_element(ctx, background_element, background_parent^, config)
 	background_element.clip = {.None, {}}
-	background_element.capture = .True
 
 	scroll_percent, handle_percent := scrollbar_handle_params(parent)
 	background_size := size(background_id)
@@ -141,17 +140,17 @@ scrollbar :: proc(
 		handle_element.position = {.Relative, {x, 0}}
 	}
 	handle_element.block = .False
-	handle_element.capture = .False
 	end_element()
 
 	// handle mouse events
-	if captured(background_id) {
+	if .Held in pointer_response(background_id) {
 		scrollbar_background := get_element(background_id)
 		scroll_container := get_element(parent)
 		scroll_offset := scroll_container.scroll.offset
 
+		pos := pointer_position()
 		if handle_config.direction == .TopToBottom {
-			mouse_position := rl.GetMousePosition().y
+			mouse_position := pos.y
 			relative_position :=
 				mouse_position - scrollbar_background._position.y - handle_size.y / 2
 			track_range := background_size.y - handle_size.y
@@ -160,7 +159,7 @@ scrollbar :: proc(
 				percent * max(0, scroll_container._content_size.y - inner_height(scroll_container))
 			set_scroll_offset(parent, scroll_offset)
 		} else {
-			mouse_position := rl.GetMousePosition().x
+			mouse_position := pos.x
 			relative_position :=
 				mouse_position - scrollbar_background._position.x - handle_size.x / 2
 			track_range := background_size.x - handle_size.x

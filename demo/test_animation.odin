@@ -82,6 +82,7 @@ animation_ease_row :: proc() {
 
 animation_ease_button :: proc(id, text: string, easing: ease.Ease) {
 	button_id := orui.id(id)
+	response := orui.pointer_response(button_id)
 	selected := animation_ease == easing
 	target_bg := rl.Color{245, 245, 245, 255}
 	target_border := rl.Color{170, 170, 170, 255}
@@ -92,10 +93,10 @@ animation_ease_button :: proc(id, text: string, easing: ease.Ease) {
 		target_border = {45, 90, 170, 255}
 		target_text = rl.WHITE
 	}
-	if orui.hovered() {
+	if .Hovered in response {
 		target_bg = selected ? rl.Color{55, 110, 195, 255} : rl.Color{230, 238, 250, 255}
 	}
-	if orui.active() {
+	if .Held in response {
 		target_bg = selected ? rl.Color{40, 90, 170, 255} : rl.Color{210, 225, 245, 255}
 	}
 
@@ -127,12 +128,13 @@ animation_button_row :: proc() {
 	target_bg := rl.Color{248, 239, 222, 255}
 	target_border := rl.Color{166, 137, 103, 255}
 	button_id := orui.id("button")
+	response := orui.pointer_response(button_id)
 
-	if orui.hovered() {
+	if .Hovered in response {
 		target_bg = {199, 232, 214, 255}
 		target_border = {53, 134, 104, 255}
 	}
-	if orui.active() {
+	if .Held in response {
 		target_bg = {119, 170, 205, 255}
 		target_border = {38, 82, 130, 255}
 	}
@@ -161,9 +163,10 @@ animation_input_row :: proc() {
 	)
 
 	input_id := orui.id("animated input")
+	response := orui.pointer_response(input_id)
 	target_bg := rl.Color{250, 242, 225, 255}
 	target_border := rl.Color{172, 142, 104, 255}
-	if orui.hovered() {
+	if .Hovered in response {
 		target_bg = {220, 244, 231, 255}
 		target_border = {42, 145, 112, 255}
 	}
@@ -171,7 +174,7 @@ animation_input_row :: proc() {
 		target_bg = {211, 226, 255, 255}
 		target_border = {61, 104, 190, 255}
 	}
-	if orui.active() {
+	if .Held in response {
 		target_bg = {185, 208, 246, 255}
 		target_border = {45, 82, 155, 255}
 	}
@@ -183,7 +186,7 @@ animation_input_row :: proc() {
 			width = orui.fixed(310),
 			padding = orui.transition(
 				"padding",
-				orui.active() || orui.focused(),
+				.Held in response || orui.focused(),
 				orui.padding(10, 8),
 				orui.padding(14, 8),
 				0.3,
@@ -209,8 +212,9 @@ animation_size_row :: proc() {
 	)
 
 	size_id := orui.id("size demo")
-	hovered := orui.hovered()
-	active := orui.active()
+	response := orui.pointer_response(size_id)
+	hovered := .Hovered in response
+	active := .Held in response
 	target_bg := rl.Color{236, 224, 204, 255}
 	target_border := rl.Color{152, 122, 86, 255}
 

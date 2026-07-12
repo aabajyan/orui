@@ -32,17 +32,17 @@ main :: proc() {
 		orui.begin(ctx, rl.GetScreenWidth(), rl.GetScreenHeight())
 
 		panel_bounds := orui.bounding_rect(panel_id)
-		mouse := rl.GetMousePosition()
+		mouse := orui.pointer_position()
+		response := orui.pointer_response(panel_id)
 		left_edge := rl.Rectangle {
 			panel_bounds.x - HIT_SLOP,
 			panel_bounds.y,
 			HIT_SLOP * 2,
 			panel_bounds.height,
 		}
-		over_left_edge :=
-			orui.pointer_hovered_within(panel_id) && rl.CheckCollisionPointRec(mouse, left_edge)
+		over_left_edge := .Hovered in response && rl.CheckCollisionPointRec(mouse, left_edge)
 
-		if orui.pointer_pressed_within(panel_id) && over_left_edge {
+		if .Pressed in response && over_left_edge {
 			dragging = true
 			drag_start_mouse_x = mouse.x
 			drag_start_x = panel_x
@@ -50,7 +50,7 @@ main :: proc() {
 		}
 
 		if dragging {
-			if rl.IsMouseButtonReleased(.LEFT) {
+			if .Released in response {
 				dragging = false
 			} else {
 				delta := mouse.x - drag_start_mouse_x
@@ -92,7 +92,7 @@ main :: proc() {
 			)
 			orui.label(
 				orui.id("nested child"),
-				"Nested child fills panel. pointer_*_within routes child interaction to panel ID.",
+				"Nested child fills panel. pointer_response routes child interaction to panel ID.",
 				{
 					width = orui.grow(),
 					height = orui.grow(),

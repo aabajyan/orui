@@ -139,8 +139,10 @@ main :: proc() {
 								gap = 16,
 							},
 						)
+						ok_id := orui.to_id("ok button")
+						ok_response := orui.pointer_response(ok_id)
 						if orui.label(
-							orui.id("ok button"),
+							orui.id(ok_id),
 							"Confirm",
 							{
 								width = orui.fit(),
@@ -148,7 +150,7 @@ main :: proc() {
 								font_size = 16,
 								color = rl.WHITE,
 								padding = {10, 20, 10, 20},
-								background_color = orui.active() ? {100, 120, 100, 255} : orui.hovered() ? {110, 140, 110, 255} : {60, 80, 60, 255},
+								background_color = .Held in ok_response ? {100, 120, 100, 255} : .Hovered in ok_response ? {110, 140, 110, 255} : {60, 80, 60, 255},
 								border = orui.border(1),
 								border_color = {100, 100, 100, 255},
 								corner_radius = orui.corner(4),
@@ -156,8 +158,10 @@ main :: proc() {
 						) {
 							log.info("ok button clicked")
 						}
+						cancel_id := orui.to_id("cancel button")
+						cancel_response := orui.pointer_response(cancel_id)
 						if orui.label(
-							orui.id("cancel button"),
+							orui.id(cancel_id),
 							"Cancel",
 							{
 								width = orui.fit(),
@@ -165,7 +169,7 @@ main :: proc() {
 								font_size = 16,
 								color = rl.WHITE,
 								padding = {10, 20, 10, 20},
-								background_color = orui.active() ? {120, 100, 100, 255} : orui.hovered() ? {140, 120, 120, 255} : {80, 60, 60, 255},
+								background_color = .Held in cancel_response ? {120, 100, 100, 255} : .Hovered in cancel_response ? {140, 120, 120, 255} : {80, 60, 60, 255},
 								border = orui.border(1),
 								border_color = {100, 100, 100, 255},
 								corner_radius = orui.corner(4),
@@ -178,12 +182,14 @@ main :: proc() {
 			}
 		}
 
-		if rl.IsMouseButtonPressed(.LEFT) && orui.hovered(orui.to_id("window1", 1)) {
+		window1_response := orui.pointer_response(orui.to_id("window1", 1))
+		window2_response := orui.pointer_response(orui.to_id("window2", 1))
+		if .Pressed in window1_response {
 			dragging1 = true
 			layer1 = 3
 			layer2 = 2
 		}
-		if rl.IsMouseButtonPressed(.LEFT) && orui.hovered(orui.to_id("window2", 1)) {
+		if .Pressed in window2_response {
 			dragging2 = true
 			layer1 = 2
 			layer2 = 3
@@ -193,7 +199,7 @@ main :: proc() {
 			window_offset1.x += rl.GetMouseDelta().x
 			window_offset1.y += rl.GetMouseDelta().y
 
-			if rl.IsMouseButtonUp(.LEFT) {
+			if .Released in window1_response {
 				dragging1 = false
 			}
 		}
@@ -202,7 +208,7 @@ main :: proc() {
 			window_offset2.x += rl.GetMouseDelta().x
 			window_offset2.y += rl.GetMouseDelta().y
 
-			if rl.IsMouseButtonUp(.LEFT) {
+			if .Released in window2_response {
 				dragging2 = false
 			}
 		}
@@ -259,8 +265,9 @@ window :: proc(id: string, title: string, position: rl.Vector2, dragging: bool, 
 		},
 	)
 
+	header_id := orui.to_id(id, 1)
 	{orui.container(
-			orui.id(id, 1),
+			orui.id(header_id),
 			{
 				width = orui.grow(),
 				height = orui.fixed(32),
@@ -270,18 +277,19 @@ window :: proc(id: string, title: string, position: rl.Vector2, dragging: bool, 
 				border = {0, 0, 1, 0},
 				border_color = {150, 150, 150, 255},
 				align_main = .SpaceBetween,
-				capture = .True,
 			},
 		)
 		orui.label(orui.id(id, 2), title, {font_size = 16, color = rl.WHITE, disabled = .True})
 
+		close_id := orui.to_id(id, 3)
+		close_response := orui.pointer_response(close_id)
 		orui.image(
-			orui.id(id, 3),
+			orui.id(close_id),
 			&close_icon,
 			{
 				width = orui.fixed(24),
 				height = orui.fixed(24),
-				color = orui.active() ? {220, 220, 220, 255} : orui.hovered() ? rl.WHITE : {200, 200, 200, 255},
+				color = .Held in close_response ? {220, 220, 220, 255} : .Hovered in close_response ? rl.WHITE : {200, 200, 200, 255},
 			},
 		)
 	}

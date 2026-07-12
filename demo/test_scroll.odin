@@ -59,21 +59,23 @@ render_test_scroll :: proc() {
 		{width = orui.grow(), font_size = 24, color = rl.BLACK, align = {.Center, .Center}},
 	)
 
+	input1_id := orui.id("text input 1")
+	input1_response := orui.pointer_response(input1_id)
 	orui.text_input(
-		orui.id("text input 1"),
+		input1_id,
 		&text_input1,
 		{
 			width = orui.fixed(300),
 			height = orui.fit(),
 			padding = orui.padding(8),
-			background_color = orui.hovered() || orui.focused() ? rl.WHITE : {240, 240, 240, 255},
+			background_color = .Hovered in input1_response || orui.focused(input1_id) ? rl.WHITE : {240, 240, 240, 255},
 			color = rl.BLACK,
 			font_size = 16,
 			overflow = .Visible,
 			clip = {.Self, {}},
 			scroll = orui.scroll(.Auto),
 			border = orui.border(1),
-			border_color = orui.focused() ? rl.BLACK : rl.LIGHTGRAY,
+			border_color = orui.focused(input1_id) ? rl.BLACK : rl.LIGHTGRAY,
 		},
 	)
 
@@ -82,21 +84,23 @@ render_test_scroll :: proc() {
 			{width = orui.fixed(500), height = orui.fixed(500), position = {.Relative, {}}},
 		)
 
+		input2_id := orui.id("text input 2")
+		input2_response := orui.pointer_response(input2_id)
 		orui.text_input(
-			orui.id("text input 2"),
+			input2_id,
 			&text_input2,
 			{
 				width = orui.fixed(500),
 				height = orui.fixed(500),
 				padding = orui.padding(8),
-				background_color = orui.hovered() || orui.focused() ? rl.WHITE : {240, 240, 240, 255},
+				background_color = .Hovered in input2_response || orui.focused(input2_id) ? rl.WHITE : {240, 240, 240, 255},
 				color = rl.BLACK,
 				font_size = 16,
 				overflow = .Wrap,
 				clip = {.Self, {}},
 				scroll = orui.scroll(.Auto),
 				border = orui.border(1),
-				border_color = orui.focused() ? rl.BLACK : rl.LIGHTGRAY,
+				border_color = orui.focused(input2_id) ? rl.BLACK : rl.LIGHTGRAY,
 			},
 		)
 
