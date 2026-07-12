@@ -208,6 +208,18 @@ ScrollConfig :: struct {
 	offset:    rl.Vector2,
 }
 
+Focus_Mode :: enum {
+	Pointer,
+	Navigation,
+}
+
+Focus_Policy :: bit_set[Focus_Mode; u8]
+
+Focus_Direction :: enum {
+	Forward,
+	Backward,
+}
+
 ElementConfig :: struct {
 	// Determines how child elements are sized and positioned.
 	layout:           Layout,
@@ -328,6 +340,8 @@ ElementConfig :: struct {
 	// Whether the element will consume mouse interactions, blocking elements below it from receiving them.
 	// Inherited from parent by default.
 	block:            InheritedBool,
+	// How the element can receive focus. Empty means the element is not focusable.
+	focus:            Focus_Policy,
 	editable:         bool,
 
 	// Scroll configuration
@@ -403,6 +417,7 @@ Element :: struct {
 	disabled:          InheritedBool,
 	block:             InheritedBool,
 	hit_slop:          Edges,
+	focus:             Focus_Policy,
 	editable:          bool,
 
 	// scroll
@@ -525,6 +540,7 @@ configure_element :: proc(
 	// input
 	element.disabled = config.disabled == .Inherit ? parent.disabled : config.disabled
 	element.block = config.block == .Inherit ? parent.block : config.block
+	element.focus = config.focus
 	element.editable = config.editable
 
 	// scroll

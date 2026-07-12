@@ -131,9 +131,8 @@ handle_input_state_with :: proc(
 	// previous elements are the latest available state of the elements
 	elements := &ctx.elements[previous]
 
-	sync_focus_element(ctx)
-
 	ctx.prev_focus_id = ctx.focus_id
+	sync_focus_element(ctx)
 	ctx.pointer_hover_id = 0
 
 	if released {
@@ -220,9 +219,22 @@ handle_pointer_focus :: proc(ctx: ^Context, position: rl.Vector2) {
 	target_index, ok := element_index_by_id(ctx, buffer, ctx.pointer_pressed_id)
 	if !ok do return
 
-	element := &ctx.elements[buffer][target_index]
+	elements := &ctx.elements[buffer]
+	focus_index := target_index
+	for focus_index != 0 &&
+	    (elements[focus_index].disabled == .True || .Pointer not_in elements[focus_index].focus) {
+		focus_index = elements[focus_index].parent
+	}
+
+	if focus_index == 0 {
+		if ctx.focus != 0 do clear_focus_context(ctx)
+		else do clear_text_click_state(ctx)
+		return
+	}
+
+	element := &elements[focus_index]
 	if element.editable {
-		if ctx.focus == target_index &&
+		if ctx.focus == focus_index &&
 		   (ctx.selecting || rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT)) {
 			ctx.text_selection_mode = .Character
 			ctx.text_selection.end = text_caret_from_point(ctx, element, position)
@@ -230,16 +242,13 @@ handle_pointer_focus :: proc(ctx: ^Context, position: rl.Vector2) {
 			ctx.caret_time = 0
 			ensure_caret_visible(ctx, element, ctx.caret_index)
 		} else {
-			ctx.focus = target_index
-			ctx.focus_id = element.id
+			set_focus_element(ctx, buffer, focus_index)
 			click_count := next_text_click_count(ctx, element.id, position)
 			ctx.selecting = true
 			start_text_click_selection(ctx, element, position, click_count)
 		}
-	} else if ctx.focus != 0 {
-		clear_focus(ctx)
 	} else {
-		clear_text_click_state(ctx)
+		set_focus_element(ctx, buffer, focus_index)
 	}
 }
 
@@ -339,9 +348,9 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 	if ctx.focus != 0 {
 		element := &elements[ctx.focus]
 		if !element.editable {
-			clear_focus(ctx)
+			return
 		} else if rl.IsKeyPressed(.ENTER) && element.overflow == .Visible {
-			clear_focus(ctx)
+			clear_focus_context(ctx)
 		} else {
 			text_input := element.text_input
 			ctrl_down := rl.IsKeyDown(.LEFT_CONTROL) || rl.IsKeyDown(.RIGHT_CONTROL)
@@ -581,6 +590,44 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 	}
 }
 
+move_focus :: proc(direction: Focus_Direction) {
+	ctx := current_context
+	buffer := previous_buffer(ctx)
+	count := ctx.element_count[buffer]
+	if count <= 1 do return
+	elements := &ctx.elements[buffer]
+	reverse := direction == .Backward
+
+	candidate := ctx.focus
+	for _ in 1 ..< count {
+		if reverse {
+			candidate -= 1
+			if candidate <= 0 do candidate = count - 1
+		} else {
+			candidate += 1
+			if candidate >= count do candidate = 1
+		}
+
+		element := &elements[candidate]
+		if element.disabled == .True || .Navigation not_in element.focus do continue
+
+		set_focus_element(ctx, buffer, candidate)
+		return
+	}
+}
+
+@(private)
+set_focus_element :: proc(ctx: ^Context, buffer: int, index: i32) {
+	element := &ctx.elements[buffer][index]
+	ctx.focus = index
+	ctx.focus_id = element.id
+	ctx.text_selection = {}
+	ctx.selecting = false
+	ctx.caret_index = element.editable && element.text_input != nil ? len(element.text_input.buf) : -1
+	ctx.caret_time = 0
+	clear_text_click_state(ctx)
+}
+
 sync_focus_element :: proc(ctx: ^Context) {
 	if ctx.focus_id == 0 {
 		ctx.focus = 0
@@ -589,13 +636,18 @@ sync_focus_element :: proc(ctx: ^Context) {
 
 	focus_index, ok := element_index_by_id(ctx, previous_buffer(ctx), ctx.focus_id)
 	if !ok {
-		clear_focus(ctx)
+		clear_focus_context(ctx)
 		return
 	}
 
 	ctx.focus = focus_index
 
 	element := &ctx.elements[previous_buffer(ctx)][focus_index]
+	if element.disabled == .True || element.focus == {} {
+		clear_focus_context(ctx)
+		return
+	}
+
 	if !element.editable || element.text_input == nil {
 		return
 	}
@@ -615,7 +667,7 @@ sync_focus_element :: proc(ctx: ^Context) {
 }
 
 @(private)
-clear_focus :: proc(ctx: ^Context) {
+clear_focus_context :: proc(ctx: ^Context) {
 	ctx.focus = 0
 	ctx.focus_id = 0
 	ctx.text_selection = {}

@@ -55,8 +55,7 @@ Context :: struct {
 	pointer_released_id:     Id,
 	pointer_released_button: rl.MouseButton,
 	pointer_clicked_id:      Id,
-
-	// text input
+	// keyboard focus and text input
 	focus:                   i32,
 	focus_id:                Id,
 	prev_focus_id:           Id,

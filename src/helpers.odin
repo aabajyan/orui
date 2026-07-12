@@ -107,7 +107,7 @@ focused :: proc {
 }
 
 @(private)
-// Whether the current text input element is focused (receiving keyboard input).
+// Whether the current element owns keyboard focus.
 // Only one element can be focused at a time.
 _focused :: proc() -> bool {
 	ctx := current_context
@@ -115,7 +115,7 @@ _focused :: proc() -> bool {
 }
 
 @(private)
-// Whether the specified text input element is focused (receiving keyboard input).
+// Whether the specified element owns keyboard focus.
 // Only one element can be focused at a time.
 _focused_string :: proc(id: string) -> bool {
 	ctx := current_context
@@ -127,6 +127,24 @@ _focused_string :: proc(id: string) -> bool {
 _focused_id :: proc(id: Id) -> bool {
 	ctx := current_context
 	return ctx.focus_id == id
+}
+
+// Give keyboard focus to a declared, enabled, focusable element.
+// Requests for missing or non-focusable elements are ignored.
+request_focus :: proc(id: Id) {
+	ctx := current_context
+	index, ok := element_index_by_id(ctx, current_buffer(ctx), id)
+	if !ok do return
+
+	element := &ctx.elements[current_buffer(ctx)][index]
+	if element.disabled == .True || element.focus == {} do return
+
+	set_focus_element(ctx, current_buffer(ctx), index)
+}
+
+// Clear the current keyboard focus owner.
+clear_focus :: proc() {
+	clear_focus_context(current_context)
 }
 
 padding :: proc {

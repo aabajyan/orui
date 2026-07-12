@@ -52,6 +52,10 @@ main :: proc() {
 		width := rl.GetScreenWidth()
 		height := rl.GetScreenHeight()
 		orui.begin(ctx, width, height)
+		if rl.IsKeyPressed(.TAB) {
+			direction: orui.Focus_Direction = rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) ? .Backward : .Forward
+			orui.move_focus(direction)
+		}
 
 		{orui.container(
 				orui.id("container"),
@@ -138,21 +142,33 @@ _button :: proc(id: string, label: string, modifiers: ..orui.ElementModifier) ->
 
 _button_id :: proc(id: orui.Id, label: string, modifiers: ..orui.ElementModifier) -> bool {
 	response := orui.pointer_response(id)
-	return orui.label(
+	clicked := orui.label(
 		orui.id(id),
 		label,
 		{
 			background_color = .Held in response ? {220, 190, 170, 255} : .Hovered in response ? {250, 220, 200, 255} : {240, 210, 190, 255},
 			border = orui.border(1),
-			border_color = {100, 100, 100, 255},
+			border_color = orui.focused(id) ? rl.BLUE : {100, 100, 100, 255},
 			corner_radius = orui.corner(4),
 			color = rl.BLACK,
 			padding = orui.padding(10, 8),
 			align = {.Center, .Center},
 			font_size = 16,
+			focus = {.Pointer, .Navigation},
 		},
 		..modifiers,
 	)
+	return clicked || button_key_activated(id)
+}
+
+button_key_activated :: proc(id: orui.Id) -> bool {
+	if !orui.focused(id) do return false
+	modified :=
+		rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) ||
+		rl.IsKeyDown(.LEFT_CONTROL) || rl.IsKeyDown(.RIGHT_CONTROL) ||
+		rl.IsKeyDown(.LEFT_ALT) || rl.IsKeyDown(.RIGHT_ALT) ||
+		rl.IsKeyDown(.LEFT_SUPER) || rl.IsKeyDown(.RIGHT_SUPER)
+	return !modified && (rl.IsKeyPressed(.ENTER) || rl.IsKeyPressed(.SPACE))
 }
 
 tooltip :: proc(id: string, label: string, modifiers: ..orui.ElementModifier) {
@@ -185,12 +201,13 @@ toggle_button :: proc(
 	toggle_state: ^bool,
 	modifiers: ..orui.ElementModifier,
 ) {
-	response := orui.pointer_response(orui.to_id(id))
+	button_id := orui.to_id(id)
+	response := orui.pointer_response(button_id)
 	highlight_color := toggle_state^ ? rl.Color{120, 200, 120, 255} : rl.Color{200, 120, 120, 255}
 	normal_color := toggle_state^ ? rl.Color{100, 180, 100, 255} : rl.Color{180, 100, 100, 255}
 
 	if orui.label(
-		orui.id(id),
+		orui.id(button_id),
 		label,
 		{
 			font_size = 16,
@@ -198,11 +215,12 @@ toggle_button :: proc(
 			background_color = .Hovered in response ? highlight_color : normal_color,
 			color = rl.WHITE,
 			border = orui.border(1),
-			border_color = {100, 100, 100, 255},
+			border_color = orui.focused(button_id) ? rl.BLUE : {100, 100, 100, 255},
 			corner_radius = orui.corner(4),
+			focus = {.Pointer, .Navigation},
 		},
 		..modifiers,
-	) {
+	) || button_key_activated(button_id) {
 		toggle_state^ = !toggle_state^
 	}
 }
@@ -227,9 +245,10 @@ toggle_buttons :: proc(id: string, labels: []string, toggle_state: ^int) {
 				background_color = toggle_state^ == i ? highlight_color : .Held in response ? active_color : .Hovered in response ? hovered_color : normal_color,
 				color = rl.BLACK,
 				border = orui.border(1),
-				border_color = {100, 100, 100, 255},
+				border_color = orui.focused(item_id) ? rl.BLUE : {100, 100, 100, 255},
+				focus = {.Pointer, .Navigation},
 			},
-		) {
+		) || button_key_activated(item_id) {
 			toggle_state^ = i
 		}
 	}
@@ -305,11 +324,12 @@ checkbox :: proc(id: string, label: string, checked_state: ^bool) {
 			width = orui.fit(),
 			height = orui.fit(),
 			align_cross = .Center,
+			focus = {.Pointer, .Navigation},
 		},
 	)
 
 	// listen for clicks on the container, not the checkbox/label
-	if .Clicked in response {
+	if .Clicked in response || button_key_activated(container_id) {
 		checked_state^ = !checked_state^
 	}
 
@@ -320,6 +340,8 @@ checkbox :: proc(id: string, label: string, checked_state: ^bool) {
 				height = orui.fixed(25),
 				background_color = rl.WHITE,
 				padding = orui.padding(5),
+				border = orui.border(1),
+				border_color = orui.focused(container_id) ? rl.BLUE : rl.LIGHTGRAY,
 				disabled = .True,
 				corner_radius = orui.corner(5),
 			},

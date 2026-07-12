@@ -76,6 +76,8 @@ To do:
 	- [pointer_response()](#pointer_response)
 	- [pointer_position()](#pointer_position)
 	- [focused()](#focused)
+	- [request_focus(), clear_focus()](#request_focus-clear_focus)
+	- [move_focus()](#move_focus)
 	- [set_hit_slop()](#set_hit_slop)
 - [Animation](#animation)
 - [Element config](#element-config)
@@ -358,17 +360,56 @@ mouse := orui.pointer_position()
 
 ### focused()
 
-Returns true if the text input element is currently focused (active and receiving keyboard input).
+Returns true if the element currently owns keyboard focus.
 
 Only one element can be focused at a time.
 
-Clicking outside of the element or focusing another element will unfocus the element.
+Focus is opt-in through `ElementConfig.focus`. Pointer and sequential navigation focus can be enabled independently:
+
+```odin
+button_id := orui.to_id("button")
+orui.container(orui.id(button_id), {
+	focus = {.Pointer, .Navigation},
+})
+
+if orui.focused(button_id) {
+	// button owns keyboard focus
+}
+```
+
+An empty policy is the default, so labels, icons, and layout-only containers do not enter sequential navigation. Text inputs enable both modes. Navigation order follows declaration order, skips disabled or missing elements, and wraps.
 
 You can ask about a specific element by passing in the ID:
 
 ```odin
 if orui.focused("input element") {
   // is focused
+}
+```
+
+### request_focus(), clear_focus()
+
+Request focus after declaring the target in the current frame. Missing, disabled, or non-focusable targets are ignored.
+
+```odin
+field_id := orui.to_id("field")
+orui.container(orui.id(field_id), {
+	focus = {.Pointer, .Navigation},
+})
+
+orui.request_focus(field_id)
+orui.clear_focus()
+```
+
+### move_focus()
+
+Moves focus through elements marked `.Navigation`. ORUI owns the order; the host owns the input mapping.
+
+```odin
+if rl.IsKeyPressed(.TAB) {
+	direction: orui.Focus_Direction =
+		rl.IsKeyDown(.LEFT_SHIFT) ? .Backward : .Forward
+	orui.move_focus(direction)
 }
 ```
 
@@ -837,6 +878,19 @@ InheritedBool :: enum {
 	False,
 	True,
 }
+```
+
+### focus
+
+`focus` opts an element into pointer focus, sequential navigation focus, or both. The default empty policy keeps decorative elements out of focus handling.
+
+```odin
+Focus_Mode :: enum {
+	Pointer,
+	Navigation,
+}
+
+Focus_Policy :: bit_set[Focus_Mode; u8]
 ```
 
 ### scroll

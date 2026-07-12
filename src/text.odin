@@ -941,7 +941,9 @@ render_caret :: proc(
 	letter_spacing: f32,
 	inner_width: f32,
 ) {
-	if current_context.focus_id != element.id || current_context.caret_index == -1 {
+	if !element.editable ||
+	   current_context.focus_id != element.id ||
+	   current_context.caret_index == -1 {
 		return
 	}
 
@@ -1002,7 +1004,7 @@ render_selection :: proc(
 	inner_width: f32,
 	selection: TextSelection,
 ) {
-	if current_context.focus_id != element.id {
+	if !element.editable || current_context.focus_id != element.id {
 		return
 	}
 
