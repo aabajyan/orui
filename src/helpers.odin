@@ -129,6 +129,21 @@ _focused_id :: proc(id: Id) -> bool {
 	return ctx.focus_id == id
 }
 
+// Whether the keyboard focus owner accepts text input.
+focus_is_editable :: proc() -> bool {
+	ctx := current_context
+	if ctx.focus_id == 0 do return false
+
+	index, ok := element_index_by_id(ctx, current_buffer(ctx), ctx.focus_id)
+	if !ok {
+		index, ok = element_index_by_id(ctx, previous_buffer(ctx), ctx.focus_id)
+		if !ok do return false
+		return ctx.elements[previous_buffer(ctx)][index].editable
+	}
+
+	return ctx.elements[current_buffer(ctx)][index].editable
+}
+
 // Give keyboard focus to a declared, enabled, focusable element.
 // Requests for missing or non-focusable elements are ignored.
 request_focus :: proc(id: Id) {

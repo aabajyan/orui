@@ -72,6 +72,40 @@ request_focus_accepts_marked_noneditable_element_only :: proc(t: ^testing.T) {
 }
 
 @(test)
+focused_editable_reports_current_and_previous_frame_owner :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	text_id := orui.to_id("text input")
+	button_id := orui.to_id("button")
+
+	orui.begin(ctx, 200, 100, 0)
+	orui.text_input(orui.id(text_id), &text, {})
+	orui.request_focus(text_id)
+	testing.expect(t, orui.focus_is_editable())
+	orui.end()
+
+	orui.begin(ctx, 200, 100, 0)
+	testing.expect(t, orui.focus_is_editable())
+	orui.text_input(orui.id(text_id), &text, {})
+	{orui.container(
+		orui.id(button_id),
+		{width = orui.fixed(80), height = orui.fixed(40), focus = {.Navigation}},
+	)}
+	orui.request_focus(button_id)
+	testing.expect(t, !orui.focus_is_editable())
+	orui.end()
+
+	orui.begin(ctx, 200, 100, 0)
+	testing.expect(t, !orui.focus_is_editable())
+	orui.end()
+}
+
+@(test)
 focused_noneditable_text_does_not_render_caret :: proc(t: ^testing.T) {
 	ctx := new(orui.Context)
 	defer free(ctx)
