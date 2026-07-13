@@ -17,7 +17,10 @@ open_popup :: proc(id: Id) {
 
 	assert(depth < MAX_POPUPS)
 	ctx.popup_count = depth + 1
-	ctx.popups[depth] = {id = id, restore_focus_id = ctx.focus_id}
+	ctx.popups[depth] = {
+		id               = id,
+		restore_focus_id = ctx.focus_id,
+	}
 }
 
 // Begin declaring an open popup. Must be paired with end_popup when true.
@@ -43,11 +46,15 @@ end_popup :: proc() {
 	end_element()
 }
 
-// Close the current popup and its descendants.
-close_popup :: proc() {
+// Close a popup and its descendants.
+close_popup :: proc(id: Id) {
 	ctx := current_context
-	assert(ctx.popup_begin_count > 0)
-	close_popups_to(ctx, ctx.popup_begin_count - 1, true)
+	for popup, index in ctx.popups[:ctx.popup_count] {
+		if popup.id == id {
+			close_popups_to(ctx, index, ctx.popup_begin_count > 0)
+			return
+		}
+	}
 }
 
 @(private)

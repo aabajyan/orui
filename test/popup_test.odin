@@ -19,18 +19,52 @@ popup_opens_declares_and_closes :: proc(t: ^testing.T) {
 		{position = {.Fixed, {20, 20}}, width = orui.fixed(80), height = orui.fixed(40)},
 	)
 	testing.expect(t, opened)
-	if opened {
-		orui.close_popup()
-		orui.end_popup()
-	}
+	if opened do orui.end_popup()
 	orui.end()
 
 	orui.begin(ctx, 200, 100, 0)
+	orui.close_popup(popup_id)
 	opened = orui.begin_popup(
 		orui.id(popup_id),
 		{position = {.Fixed, {20, 20}}, width = orui.fixed(80), height = orui.fixed(40)},
 	)
 	testing.expect(t, !opened)
+	orui.end()
+}
+
+@(test)
+closing_parent_popup_removes_descendants :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	parent_id := orui.to_id("parent popup")
+	child_id := orui.to_id("child popup")
+	config := orui.ElementConfig {
+		width  = orui.fixed(100),
+		height = orui.fixed(80),
+	}
+
+	orui.begin(ctx, 200, 100, 0)
+	orui.open_popup(parent_id)
+	if orui.begin_popup(orui.id(parent_id), config) {
+		orui.open_popup(child_id)
+		if orui.begin_popup(orui.id(child_id), config) do orui.end_popup()
+		orui.end_popup()
+	}
+	orui.end()
+
+	orui.begin(ctx, 200, 100, 0)
+	orui.close_popup(parent_id)
+	orui.open_popup(parent_id)
+	parent_open := orui.begin_popup(orui.id(parent_id), config)
+	testing.expect(t, parent_open)
+	if parent_open {
+		child_open := orui.begin_popup(orui.id(child_id), config)
+		testing.expect(t, !child_open)
+		orui.end_popup()
+	}
 	orui.end()
 }
 
@@ -47,9 +81,9 @@ outside_press_closes_only_topmost_popup_and_is_consumed :: proc(t: ^testing.T) {
 
 	orui.begin_with_input(ctx, 300, 200, 0, {})
 	{orui.container(
-		orui.id(background_id),
-		{position = {.Fixed, {0, 0}}, width = orui.fixed(300), height = orui.fixed(200)},
-	)}
+			orui.id(background_id),
+			{position = {.Fixed, {0, 0}}, width = orui.fixed(300), height = orui.fixed(200)},
+		)}
 	orui.open_popup(parent_id)
 	parent_open := orui.begin_popup(
 		orui.id(parent_id),
@@ -78,9 +112,9 @@ outside_press_closes_only_topmost_popup_and_is_consumed :: proc(t: ^testing.T) {
 	)
 	testing.expect(t, .Pressed not_in orui.pointer_response(background_id))
 	{orui.container(
-		orui.id(background_id),
-		{position = {.Fixed, {0, 0}}, width = orui.fixed(300), height = orui.fixed(200)},
-	)}
+			orui.id(background_id),
+			{position = {.Fixed, {0, 0}}, width = orui.fixed(300), height = orui.fixed(200)},
+		)}
 	parent_open = orui.begin_popup(
 		orui.id(parent_id),
 		{position = {.Fixed, {50, 40}}, width = orui.fixed(150), height = orui.fixed(100)},
@@ -110,14 +144,14 @@ closing_popup_restores_saved_focus_owner :: proc(t: ^testing.T) {
 
 	orui.begin_with_input(ctx, 300, 200, 0, {})
 	{orui.container(
-		orui.id(opener_id),
-		{
-			position = {.Fixed, {0, 0}},
-			width = orui.fixed(40),
-			height = orui.fixed(40),
-			focus = {.Pointer, .Navigation},
-		},
-	)}
+			orui.id(opener_id),
+			{
+				position = {.Fixed, {0, 0}},
+				width = orui.fixed(40),
+				height = orui.fixed(40),
+				focus = {.Pointer, .Navigation},
+			},
+		)}
 	orui.request_focus(opener_id)
 	orui.open_popup(popup_id)
 	opened := orui.begin_popup(
@@ -126,35 +160,27 @@ closing_popup_restores_saved_focus_owner :: proc(t: ^testing.T) {
 	)
 	if opened {
 		{orui.container(
-			orui.id(item_id),
-			{width = orui.fixed(80), height = orui.fixed(30), focus = {.Pointer, .Navigation}},
-		)}
+				orui.id(item_id),
+				{width = orui.fixed(80), height = orui.fixed(30), focus = {.Pointer, .Navigation}},
+			)}
 		orui.request_focus(item_id)
 		orui.end_popup()
 	}
 	orui.end()
 	testing.expect(t, orui.focused(item_id))
 
-	orui.begin_with_input(
-		ctx,
-		300,
-		200,
-		0,
-		{
-			pointer_position = {10, 10},
-			pointer_events = []orui.Pointer_Event{{button = .LEFT, kind = .Pressed}},
-		},
-	)
+	orui.begin_with_input(ctx, 300, 200, 0, {})
+	orui.close_popup(popup_id)
 	testing.expect(t, orui.focused(opener_id))
 	{orui.container(
-		orui.id(opener_id),
-		{
-			position = {.Fixed, {0, 0}},
-			width = orui.fixed(40),
-			height = orui.fixed(40),
-			focus = {.Pointer, .Navigation},
-		},
-	)}
+			orui.id(opener_id),
+			{
+				position = {.Fixed, {0, 0}},
+				width = orui.fixed(40),
+				height = orui.fixed(40),
+				focus = {.Pointer, .Navigation},
+			},
+		)}
 	orui.end()
 }
 
@@ -168,7 +194,7 @@ popup_routes_before_ordinary_caller_layers :: proc(t: ^testing.T) {
 	background_id := orui.to_id("background")
 	popup_id := orui.to_id("popup")
 
-	inputs := [2]orui.Input_Frame{
+	inputs := [2]orui.Input_Frame {
 		{},
 		{
 			pointer_position = {60, 50},
@@ -182,14 +208,14 @@ popup_routes_before_ordinary_caller_layers :: proc(t: ^testing.T) {
 			testing.expect(t, .Pressed not_in orui.pointer_response(background_id))
 		}
 		{orui.container(
-			orui.id(background_id),
-			{
-				position = {.Fixed, {0, 0}},
-				width = orui.fixed(300),
-				height = orui.fixed(200),
-				layer = 10_000,
-			},
-		)}
+				orui.id(background_id),
+				{
+					position = {.Fixed, {0, 0}},
+					width = orui.fixed(300),
+					height = orui.fixed(200),
+					layer = 10_000,
+				},
+			)}
 		if len(input.pointer_events) == 0 do orui.open_popup(popup_id)
 		opened := orui.begin_popup(
 			orui.id(popup_id),
