@@ -97,7 +97,9 @@ update_pointer_response :: proc(ctx: ^Context, input: Input_Frame) {
 	for event in input.pointer_events {
 		switch event.kind {
 		case .Pressed:
-			if ctx.pointer_owner_id == 0 && ctx.pointer_hover_id != 0 {
+			if ctx.pointer_owner_id != 0 do continue
+			if close_top_popup_on_outside_press(ctx) do continue
+			if ctx.pointer_hover_id != 0 {
 				ctx.pointer_owner_id = ctx.pointer_hover_id
 				ctx.pointer_owner_button = event.button
 				ctx.pointer_pressed_id = ctx.pointer_owner_id

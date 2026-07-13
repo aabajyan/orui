@@ -8,6 +8,7 @@ import rl "vendor:raylib"
 
 MAX_ELEMENTS :: 8192
 MAX_COMMANDS :: 8192
+MAX_POPUPS :: 32
 
 when ODIN_OS == .Darwin {
 	SCROLL_FACTOR: f32 : 8
@@ -55,6 +56,10 @@ Context :: struct {
 	pointer_released_id:     Id,
 	pointer_released_button: rl.MouseButton,
 	pointer_clicked_id:      Id,
+	// popup lifecycle
+	popups:                  [MAX_POPUPS]Popup_State,
+	popup_count:             int,
+	popup_begin_count:       int,
 	// keyboard focus and text input
 	focus:                   i32,
 	focus_id:                Id,
@@ -163,6 +168,7 @@ _begin_frame :: proc(ctx: ^Context, width, height, dt: f32, input: Input_Frame, 
 	ctx.current = 0
 	ctx.previous = 0
 	ctx.parent = 0
+	ctx.popup_begin_count = 0
 
 	ctx.dt = dt > 0 ? dt : rl.GetFrameTime()
 	ctx.caret_time += ctx.dt
