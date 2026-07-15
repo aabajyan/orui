@@ -28,6 +28,7 @@ Features:
 - Padding, margin, borders, rounded corners, overflow, clipping
 - Scroll (with mouse wheel)
   - Horizontal/vertical scrollbars
+  - Virtualized fixed-size lists and grids
 - Images (textures)
   - Alignment
   - Content fit (fill, contain, cover, none, scale-down)
@@ -72,6 +73,7 @@ To do:
   - [text_input](#text_inputid-buffer-config-modifiers)
   - [image](#imageid-config-modifiers)
   - [scrollbar](#scrollbarparent_id-background_config-handle_config-index--0)
+  - [virtual_axis and virtual_grid](#virtual_axis-and-virtual_grid)
 - [Other functions](#other-functions)
 	- [pointer_response()](#pointer_response)
 	- [pointer_position()](#pointer_position)
@@ -330,6 +332,49 @@ orui.scrollbar(orui.to_id("container id"), {
   background_color = rl.LIGHTGRAY,
   corner_radius = corner(4),
 })
+```
+
+### virtual_axis and virtual_grid
+
+Use `virtual_axis` to declare only visible items from a fixed-size horizontal or vertical list. It creates the scroll container and full-size content element. Keep it in its own scope, iterate over `[range.first:range.last]`, and position each item with `virtual_axis_item`.
+
+```odin
+list_id := orui.to_id("rows")
+{range := orui.virtual_axis(
+		list_id,
+		len(rows),
+		32,
+		4,
+		.TopToBottom,
+		{width = orui.grow(), height = orui.fixed(320)},
+	)
+	for text, offset in rows[range.first:range.last] {
+		index := range.first + offset
+		config := orui.ElementConfig{}
+		orui.virtual_axis_item(range, index, &config)
+		orui.label(orui.id("row", index), text, config)
+	}
+}
+```
+
+`virtual_grid` calculates the number of columns from the available width. Use `grid.first:grid.last` and `virtual_grid_item` the same way:
+
+```odin
+{grid := orui.virtual_grid(
+		orui.to_id("cards"),
+		len(cards),
+		160,
+		120,
+		8,
+		{width = orui.grow(), height = orui.grow()},
+	)
+	for card, offset in cards[grid.first:grid.last] {
+		index := grid.first + offset
+		config := orui.ElementConfig{}
+		orui.virtual_grid_item(grid, index, &config)
+		draw_card(card, config)
+	}
+}
 ```
 
 ## Other functions
