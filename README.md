@@ -89,6 +89,9 @@ To do:
 
 Allocate the orui Context up front and initialize:
 
+When using Raylib input, create its window before initializing ORUI so native input hooks bind
+to the correct window. `begin_with_input` can be used without a window.
+
 ```odin
 ctx := new(orui.Context)
 orui.init(ctx)
@@ -403,14 +406,12 @@ orui.clear_focus()
 
 ### move_focus()
 
-Moves focus through elements marked `.Navigation`. ORUI owns the order; the host owns the input mapping.
+Moves focus through elements marked `.Navigation`. ORUI automatically handles plain Tab and Shift+Tab. Modified Tab presses remain available to application commands.
+
+Call `move_focus` only when the application explicitly requests traversal without a Tab key event:
 
 ```odin
-if rl.IsKeyPressed(.TAB) {
-	direction: orui.Focus_Direction =
-		rl.IsKeyDown(.LEFT_SHIFT) ? .Backward : .Forward
-	orui.move_focus(direction)
-}
+orui.move_focus(.Forward)
 ```
 
 ### set_hit_slop()

@@ -9,6 +9,8 @@ import rl "vendor:raylib"
 MAX_ELEMENTS :: 8192
 MAX_COMMANDS :: 8192
 MAX_POPUPS :: 32
+MAX_KEY_EVENTS :: 128
+MAX_TEXT_EVENTS :: 64
 
 when ODIN_OS == .Darwin {
 	SCROLL_FACTOR: f32 : 8
@@ -61,6 +63,13 @@ Context :: struct {
 	popup_count:             int,
 	popup_begin_count:       int,
 	// keyboard focus and text input
+	key_events:              [MAX_KEY_EVENTS]Key_Event,
+	key_event_consumed:      [MAX_KEY_EVENTS]bool,
+	key_event_count:         int,
+	pending_key_events:      [MAX_KEY_EVENTS]Key_Event,
+	pending_key_event_count: int,
+	key_modifiers:           Key_Modifiers,
+	platform_input_monitor:  rawptr,
 	focus:                   i32,
 	focus_id:                Id,
 	prev_focus_id:           Id,
@@ -85,9 +94,15 @@ init :: proc(ctx: ^Context) {
 		}
 		ctx.allocator[i] = virtual.arena_allocator(&ctx.arena[i])
 	}
+	when ODIN_OS == .Darwin {
+		platform_input_init(ctx)
+	}
 }
 
 destroy :: proc(ctx: ^Context) {
+	when ODIN_OS == .Darwin {
+		platform_input_destroy(ctx)
+	}
 	for i in 0 ..< 2 {
 		virtual.arena_destroy(&ctx.arena[i])
 	}

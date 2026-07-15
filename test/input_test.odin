@@ -8,17 +8,27 @@ import "core:testing"
 focus_test_frame :: proc(ctx: ^orui.Context, input: orui.Input_Frame) {
 	orui.begin_with_input(ctx, 300, 100, 0, input)
 	{orui.container(
-		orui.id("pointer focus"),
-		{position = {.Fixed, {0, 0}}, width = orui.fixed(100), height = orui.fixed(100), focus = {.Pointer}},
-	)}
+			orui.id("pointer focus"),
+			{
+				position = {.Fixed, {0, 0}},
+				width = orui.fixed(100),
+				height = orui.fixed(100),
+				focus = {.Pointer},
+			},
+		)}
 	{orui.container(
-		orui.id("tab focus"),
-		{position = {.Fixed, {100, 0}}, width = orui.fixed(100), height = orui.fixed(100), focus = {.Navigation}},
-	)}
+			orui.id("tab focus"),
+			{
+				position = {.Fixed, {100, 0}},
+				width = orui.fixed(100),
+				height = orui.fixed(100),
+				focus = {.Navigation},
+			},
+		)}
 	{orui.container(
-		orui.id("decorative"),
-		{position = {.Fixed, {200, 0}}, width = orui.fixed(100), height = orui.fixed(100)},
-	)}
+			orui.id("decorative"),
+			{position = {.Fixed, {200, 0}}, width = orui.fixed(100), height = orui.fixed(100)},
+		)}
 	orui.end()
 }
 
@@ -27,22 +37,223 @@ tab_focus_test_frame :: proc(
 	ctx: ^orui.Context,
 	move := false,
 	direction: orui.Focus_Direction = .Forward,
+	input: orui.Input_Frame = {},
 ) {
-	orui.begin_with_input(ctx, 300, 100, 0, {})
+	orui.begin_with_input(ctx, 300, 100, 0, input)
 	if move do orui.move_focus(direction)
 	{orui.container(
-		orui.id("first"),
-		{width = orui.fixed(100), height = orui.fixed(100), focus = {.Navigation}},
-	)}
+			orui.id("first"),
+			{width = orui.fixed(100), height = orui.fixed(100), focus = {.Navigation}},
+		)}
 	{orui.container(
-		orui.id("disabled"),
-		{width = orui.fixed(100), height = orui.fixed(100), focus = {.Navigation}, disabled = .True},
-	)}
+			orui.id("disabled"),
+			{
+				width = orui.fixed(100),
+				height = orui.fixed(100),
+				focus = {.Navigation},
+				disabled = .True,
+			},
+		)}
 	{orui.container(
-		orui.id("last"),
-		{width = orui.fixed(100), height = orui.fixed(100), focus = {.Navigation}},
-	)}
+			orui.id("last"),
+			{width = orui.fixed(100), height = orui.fixed(100), focus = {.Navigation}},
+		)}
 	orui.end()
+}
+
+@(private = "file")
+declare_key_target :: proc(ctx: ^orui.Context, id: orui.Id) {
+	{orui.container(
+			orui.id(id),
+			{width = orui.fixed(100), height = orui.fixed(40), focus = {.Navigation}},
+		)}
+}
+
+@(test)
+queued_key_press_is_delivered_once_on_the_next_frame :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	orui.queue_key_event(ctx, {key = .TAB, modifiers = {.Control}, kind = .Pressed})
+	testing.expect(t, orui.has_pending_input(ctx))
+
+	orui.begin(ctx, 100, 40, 0)
+	testing.expect(t, !orui.has_pending_input(ctx))
+	testing.expect(t, orui.key_pressed(.TAB, required = {.Control}))
+	testing.expect(t, !orui.key_pressed(.TAB, required = {.Control}))
+	orui.end()
+}
+
+@(test)
+queued_key_press_is_merged_with_injected_input :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	orui.queue_key_event(ctx, {key = .TAB, modifiers = {.Control}, kind = .Pressed})
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event{{key = .ENTER, kind = .Pressed}},
+	}
+	orui.begin_with_input(ctx, 100, 40, 0, input)
+	testing.expect(t, !orui.has_pending_input(ctx))
+	testing.expect(t, orui.key_pressed(.TAB, required = {.Control}))
+	testing.expect(t, orui.key_pressed(.ENTER))
+	testing.expect(t, !orui.key_pressed(.TAB, required = {.Control}))
+	testing.expect(t, !orui.key_pressed(.ENTER))
+	orui.end()
+}
+
+@(test)
+focused_key_press_is_delivered_once_to_its_owner :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	owner_id := orui.to_id("owner")
+	other_id := orui.to_id("other")
+	orui.begin_with_input(ctx, 200, 100, 0, {})
+	declare_key_target(ctx, owner_id)
+	declare_key_target(ctx, other_id)
+	orui.request_focus(owner_id)
+	orui.end()
+
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event{{key = .ENTER, kind = .Pressed}},
+	}
+	orui.begin_with_input(ctx, 200, 100, 0, input)
+	declare_key_target(ctx, owner_id)
+	declare_key_target(ctx, other_id)
+	testing.expect(t, !orui.key_pressed(.ENTER, focus = other_id))
+	testing.expect(t, orui.key_pressed(.ENTER, focus = owner_id))
+	testing.expect(t, !orui.key_pressed(.ENTER, focus = owner_id))
+	orui.end()
+}
+
+@(test)
+unclaimed_key_press_is_available_outside_the_focus_owner :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	id := orui.to_id("focused elsewhere")
+	orui.begin_with_input(ctx, 100, 40, 0, {})
+	declare_key_target(ctx, id)
+	orui.request_focus(id)
+	orui.end()
+
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event{{key = .TAB, modifiers = {.Control}, kind = .Pressed}},
+		modifiers  = {.Control},
+	}
+	orui.begin_with_input(ctx, 100, 40, 0, input)
+	declare_key_target(ctx, id)
+	testing.expect(t, orui.key_pressed(.TAB, required = {.Control}))
+	testing.expect(t, !orui.key_pressed(.TAB, required = {.Control}))
+	testing.expect(t, orui.focused(id))
+	orui.end()
+}
+
+@(test)
+key_filter_requires_and_allows_only_declared_modifiers :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	id := orui.to_id("modified")
+	orui.begin_with_input(ctx, 100, 40, 0, {})
+	declare_key_target(ctx, id)
+	orui.request_focus(id)
+	orui.end()
+
+	shift_event := orui.Key_Event {
+		key       = .ENTER,
+		modifiers = {.Shift},
+		kind      = .Pressed,
+	}
+	orui.begin_with_input(ctx, 100, 40, 0, {key_events = []orui.Key_Event{shift_event}})
+	declare_key_target(ctx, id)
+	testing.expect(t, !orui.key_pressed(.ENTER, focus = id))
+	testing.expect(t, orui.key_pressed(.ENTER, focus = id, required = {.Shift}))
+	orui.end()
+
+	orui.begin_with_input(ctx, 100, 40, 0, {key_events = []orui.Key_Event{shift_event}})
+	declare_key_target(ctx, id)
+	testing.expect(t, orui.key_pressed(.ENTER, focus = id, optional = {.Shift}))
+	orui.end()
+
+	modified_event := orui.Key_Event {
+		key       = .ENTER,
+		modifiers = {.Shift, .Control},
+		kind      = .Pressed,
+	}
+	orui.begin_with_input(ctx, 100, 40, 0, {key_events = []orui.Key_Event{modified_event}})
+	declare_key_target(ctx, id)
+	testing.expect(t, !orui.key_pressed(.ENTER, focus = id, required = {.Shift}))
+	testing.expect(
+		t,
+		orui.key_pressed(.ENTER, focus = id, required = {.Shift}, optional = {.Control}),
+	)
+	orui.end()
+}
+
+@(test)
+key_release_is_ignored_and_repeat_is_a_press :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	id := orui.to_id("repeat")
+	orui.begin_with_input(ctx, 100, 40, 0, {})
+	declare_key_target(ctx, id)
+	orui.request_focus(id)
+	orui.end()
+
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event {
+			{key = .RIGHT, kind = .Released},
+			{key = .RIGHT, kind = .Pressed, repeat = true},
+		},
+	}
+	orui.begin_with_input(ctx, 100, 40, 0, input)
+	declare_key_target(ctx, id)
+	testing.expect(t, orui.key_pressed(.RIGHT, focus = id))
+	testing.expect(t, !orui.key_pressed(.RIGHT, focus = id))
+	orui.end()
+}
+
+@(test)
+multiline_text_input_consumes_enter_and_inserts_newline :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "a")
+	id := orui.to_id("textarea")
+
+	orui.begin_with_input(ctx, 200, 100, 0, {})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.request_focus(id)
+	orui.end()
+
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event{{key = .ENTER, kind = .Pressed}},
+	}
+	orui.begin_with_input(ctx, 200, 100, 0, input)
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	testing.expect(t, !orui.key_pressed(.ENTER, focus = id))
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "a\n")
 }
 
 @(test)
@@ -56,13 +267,10 @@ request_focus_accepts_marked_noneditable_element_only :: proc(t: ^testing.T) {
 	decorative_id := orui.to_id("decorative")
 	orui.begin(ctx, 200, 120, 0)
 	{orui.container(
-		orui.id(focusable_id),
-		{width = orui.fixed(80), height = orui.fixed(40), focus = {.Pointer}},
-	)}
-	{orui.container(
-		orui.id(decorative_id),
-		{width = orui.fixed(80), height = orui.fixed(40)},
-	)}
+			orui.id(focusable_id),
+			{width = orui.fixed(80), height = orui.fixed(40), focus = {.Pointer}},
+		)}
+	{orui.container(orui.id(decorative_id), {width = orui.fixed(80), height = orui.fixed(40)})}
 
 	orui.request_focus(focusable_id)
 	testing.expect(t, orui.focused(focusable_id))
@@ -93,9 +301,9 @@ focused_editable_reports_current_and_previous_frame_owner :: proc(t: ^testing.T)
 	testing.expect(t, orui.focus_is_editable())
 	orui.text_input(orui.id(text_id), &text, {})
 	{orui.container(
-		orui.id(button_id),
-		{width = orui.fixed(80), height = orui.fixed(40), focus = {.Navigation}},
-	)}
+			orui.id(button_id),
+			{width = orui.fixed(80), height = orui.fixed(40), focus = {.Navigation}},
+		)}
 	orui.request_focus(button_id)
 	testing.expect(t, !orui.focus_is_editable())
 	orui.end()
@@ -190,7 +398,7 @@ pointer_focus_resolves_focusable_composite_ancestor :: proc(t: ^testing.T) {
 
 	parent_id := orui.to_id("focusable parent")
 	child_id := orui.to_id("blocking child")
-	inputs := [2]orui.Input_Frame{
+	inputs := [2]orui.Input_Frame {
 		{},
 		{
 			pointer_position = {50, 50},
@@ -200,9 +408,13 @@ pointer_focus_resolves_focusable_composite_ancestor :: proc(t: ^testing.T) {
 	for input in inputs {
 		orui.begin_with_input(ctx, 100, 100, 0, input)
 		{orui.container(
-			orui.id(parent_id),
-			{width = orui.fixed(100), height = orui.fixed(100), focus = {.Pointer, .Navigation}},
-		)
+				orui.id(parent_id),
+				{
+					width = orui.fixed(100),
+					height = orui.fixed(100),
+					focus = {.Pointer, .Navigation},
+				},
+			)
 			orui.container(orui.id(child_id), {width = orui.grow(), height = orui.grow()})
 		}
 		orui.end()
@@ -231,6 +443,36 @@ tab_focus_follows_declaration_order_and_wraps :: proc(t: ^testing.T) {
 	orui.clear_focus()
 	tab_focus_test_frame(ctx, true, .Backward)
 	testing.expect(t, orui.focused(orui.to_id("last")))
+}
+
+@(test)
+plain_tab_and_shift_tab_move_focus_automatically :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	tab_focus_test_frame(ctx)
+	tab_focus_test_frame(
+		ctx,
+		input = {key_events = []orui.Key_Event{{key = .TAB, kind = .Pressed}}},
+	)
+	testing.expect(t, orui.focused(orui.to_id("first")))
+
+	tab_focus_test_frame(
+		ctx,
+		input = {key_events = []orui.Key_Event{{key = .TAB, kind = .Pressed}}},
+	)
+	testing.expect(t, orui.focused(orui.to_id("last")))
+
+	tab_focus_test_frame(
+		ctx,
+		input = {
+			key_events = []orui.Key_Event{{key = .TAB, modifiers = {.Shift}, kind = .Pressed}},
+			modifiers = {.Shift},
+		},
+	)
+	testing.expect(t, orui.focused(orui.to_id("first")))
 }
 
 @(test)
@@ -278,8 +520,8 @@ clear_focus_when_element_becomes_disabled_or_nonfocusable :: proc(t: ^testing.T)
 	ctx.focus_id = focused_id
 	ctx.element_count[orui.previous_buffer(ctx)] = 2
 	ctx.elements[orui.previous_buffer(ctx)][1] = {
-		id = focused_id,
-		focus = {.Navigation},
+		id       = focused_id,
+		focus    = {.Navigation},
 		disabled = .True,
 	}
 	orui.sync_focus_element(ctx)

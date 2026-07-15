@@ -21,6 +21,7 @@ open_popup :: proc(id: Id) {
 		id               = id,
 		restore_focus_id = ctx.focus_id,
 	}
+	if ctx.focus_id != 0 do clear_focus_context(ctx)
 }
 
 // Begin declaring an open popup. Must be paired with end_popup when true.
@@ -63,7 +64,7 @@ close_top_popup_on_outside_press :: proc(ctx: ^Context) -> bool {
 
 	top := ctx.popups[ctx.popup_count - 1]
 	if ctx.pointer_hover_id != 0 &&
-	   pointer_target_is_in_subtree(ctx, ctx.pointer_hover_id, top.id) {
+	   element_is_in_subtree(ctx, ctx.pointer_hover_id, top.id) {
 		return false
 	}
 

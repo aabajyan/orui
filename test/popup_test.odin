@@ -185,6 +185,107 @@ closing_popup_restores_saved_focus_owner :: proc(t: ^testing.T) {
 }
 
 @(test)
+opening_popup_releases_background_keyboard_focus :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	background_id := orui.to_id("background")
+	popup_id := orui.to_id("popup")
+	item_id := orui.to_id("popup item")
+
+	orui.begin_with_input(ctx, 300, 200, 0, {})
+	{orui.container(
+		orui.id(background_id),
+		{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
+	)}
+	orui.request_focus(background_id)
+	testing.expect(t, orui.focused(background_id))
+	orui.open_popup(popup_id)
+	testing.expect(t, !orui.focused(background_id))
+	if orui.begin_popup(
+		orui.id(popup_id),
+		{width = orui.fixed(100), height = orui.fixed(80)},
+	) {
+		{orui.container(
+			orui.id(item_id),
+			{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
+		)}
+		orui.end_popup()
+	}
+	orui.end()
+
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event{{key = .ENTER, kind = .Pressed}},
+	}
+	orui.begin_with_input(ctx, 300, 200, 0, input)
+	{orui.container(
+		orui.id(background_id),
+		{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
+	)}
+	orui.request_focus(background_id)
+	testing.expect(t, !orui.focused(background_id))
+	testing.expect(t, !orui.key_pressed(.ENTER, focus = background_id))
+	if orui.begin_popup(
+		orui.id(popup_id),
+		{width = orui.fixed(100), height = orui.fixed(80)},
+	) {
+		{orui.container(
+			orui.id(item_id),
+			{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
+		)}
+		orui.request_focus(item_id)
+		orui.request_focus(background_id)
+		testing.expect(t, orui.focused(item_id))
+		testing.expect(t, orui.key_pressed(.ENTER, focus = item_id))
+		orui.end_popup()
+	}
+	orui.end()
+}
+
+@(test)
+tab_focus_stays_inside_top_popup :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	background_id := orui.to_id("background")
+	popup_id := orui.to_id("popup")
+	item_id := orui.to_id("popup item")
+
+	for frame in 0 ..< 3 {
+		input := orui.Input_Frame{}
+		if frame > 0 {
+			input.key_events = []orui.Key_Event{{key = .TAB, kind = .Pressed}}
+		}
+		orui.begin_with_input(ctx, 300, 200, 0, input)
+		{orui.container(
+				orui.id(background_id),
+				{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
+			)}
+		if frame == 0 do orui.open_popup(popup_id)
+		if orui.begin_popup(
+			orui.id(popup_id),
+			{width = orui.fixed(100), height = orui.fixed(80)},
+		) {
+			{orui.container(
+					orui.id(item_id),
+					{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
+				)}
+			orui.end_popup()
+		}
+		orui.end()
+
+		if frame > 0 {
+			testing.expect(t, orui.focused(item_id))
+			testing.expect(t, !orui.focused(background_id))
+		}
+	}
+}
+
+@(test)
 popup_routes_before_ordinary_caller_layers :: proc(t: ^testing.T) {
 	ctx := new(orui.Context)
 	defer free(ctx)

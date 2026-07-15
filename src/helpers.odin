@@ -16,16 +16,16 @@ pointer_response :: proc(id: Id, button: rl.MouseButton = .LEFT) -> Pointer_Resp
 	ctx := current_context
 	response: Pointer_Response
 	owner_routes_to_id :=
-		ctx.pointer_owner_id != 0 && pointer_target_is_in_subtree(ctx, ctx.pointer_owner_id, id)
+		ctx.pointer_owner_id != 0 && element_is_in_subtree(ctx, ctx.pointer_owner_id, id)
 	hover_routes_to_id :=
-		ctx.pointer_hover_id != 0 && pointer_target_is_in_subtree(ctx, ctx.pointer_hover_id, id)
+		ctx.pointer_hover_id != 0 && element_is_in_subtree(ctx, ctx.pointer_hover_id, id)
 	if hover_routes_to_id && (ctx.pointer_owner_id == 0 || owner_routes_to_id) {
 		response += {.Hovered}
 	}
 
 	if ctx.pointer_pressed_id != 0 &&
 	   ctx.pointer_pressed_button == button &&
-	   pointer_target_is_in_subtree(ctx, ctx.pointer_pressed_id, id) {
+	   element_is_in_subtree(ctx, ctx.pointer_pressed_id, id) {
 		response += {.Pressed}
 	}
 
@@ -35,13 +35,13 @@ pointer_response :: proc(id: Id, button: rl.MouseButton = .LEFT) -> Pointer_Resp
 
 	if ctx.pointer_released_id != 0 &&
 	   ctx.pointer_released_button == button &&
-	   pointer_target_is_in_subtree(ctx, ctx.pointer_released_id, id) {
+	   element_is_in_subtree(ctx, ctx.pointer_released_id, id) {
 		response += {.Released}
 	}
 
 	if ctx.pointer_clicked_id != 0 &&
 	   ctx.pointer_released_button == button &&
-	   pointer_target_is_in_subtree(ctx, ctx.pointer_clicked_id, id) {
+	   element_is_in_subtree(ctx, ctx.pointer_clicked_id, id) {
 		response += {.Clicked}
 	}
 
@@ -87,12 +87,12 @@ _bounding_rect_id :: proc(id: Id) -> rl.Rectangle {
 }
 
 @(private)
-pointer_target_is_in_subtree :: proc(ctx: ^Context, target, ancestor: Id) -> bool {
-	buffer := previous_buffer(ctx)
-	index, ok := element_index_by_id(ctx, buffer, target)
+element_is_in_subtree :: proc(ctx: ^Context, target, ancestor: Id, buffer := -1) -> bool {
+	element_buffer := buffer >= 0 ? buffer : previous_buffer(ctx)
+	index, ok := element_index_by_id(ctx, element_buffer, target)
 	if !ok do return false
 
-	elements := &ctx.elements[buffer]
+	elements := &ctx.elements[element_buffer]
 	for {
 		if elements[index].id == ancestor do return true
 		if index == 0 do return false
@@ -148,6 +148,11 @@ focus_is_editable :: proc() -> bool {
 // Requests for missing or non-focusable elements are ignored.
 request_focus :: proc(id: Id) {
 	ctx := current_context
+	if ctx.popup_count > 0 {
+		popup_id := ctx.popups[ctx.popup_count - 1].id
+		if !element_is_in_subtree(ctx, id, popup_id, current_buffer(ctx)) do return
+	}
+
 	index, ok := element_index_by_id(ctx, current_buffer(ctx), id)
 	if !ok do return
 

@@ -52,10 +52,6 @@ main :: proc() {
 		width := rl.GetScreenWidth()
 		height := rl.GetScreenHeight()
 		orui.begin(ctx, width, height)
-		if rl.IsKeyPressed(.TAB) {
-			direction: orui.Focus_Direction = rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) ? .Backward : .Forward
-			orui.move_focus(direction)
-		}
 
 		{orui.container(
 				orui.id("container"),
@@ -162,13 +158,7 @@ _button_id :: proc(id: orui.Id, label: string, modifiers: ..orui.ElementModifier
 }
 
 button_key_activated :: proc(id: orui.Id) -> bool {
-	if !orui.focused(id) do return false
-	modified :=
-		rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) ||
-		rl.IsKeyDown(.LEFT_CONTROL) || rl.IsKeyDown(.RIGHT_CONTROL) ||
-		rl.IsKeyDown(.LEFT_ALT) || rl.IsKeyDown(.RIGHT_ALT) ||
-		rl.IsKeyDown(.LEFT_SUPER) || rl.IsKeyDown(.RIGHT_SUPER)
-	return !modified && (rl.IsKeyPressed(.ENTER) || rl.IsKeyPressed(.SPACE))
+	return orui.key_pressed(.ENTER, focus = id) || orui.key_pressed(.SPACE, focus = id)
 }
 
 tooltip :: proc(id: string, label: string, modifiers: ..orui.ElementModifier) {
@@ -207,20 +197,21 @@ toggle_button :: proc(
 	normal_color := toggle_state^ ? rl.Color{100, 180, 100, 255} : rl.Color{180, 100, 100, 255}
 
 	if orui.label(
-		orui.id(button_id),
-		label,
-		{
-			font_size = 16,
-			padding = orui.padding(10, 8),
-			background_color = .Hovered in response ? highlight_color : normal_color,
-			color = rl.WHITE,
-			border = orui.border(1),
-			border_color = orui.focused(button_id) ? rl.BLUE : {100, 100, 100, 255},
-			corner_radius = orui.corner(4),
-			focus = {.Pointer, .Navigation},
-		},
-		..modifiers,
-	) || button_key_activated(button_id) {
+		   orui.id(button_id),
+		   label,
+		   {
+			   font_size = 16,
+			   padding = orui.padding(10, 8),
+			   background_color = .Hovered in response ? highlight_color : normal_color,
+			   color = rl.WHITE,
+			   border = orui.border(1),
+			   border_color = orui.focused(button_id) ? rl.BLUE : {100, 100, 100, 255},
+			   corner_radius = orui.corner(4),
+			   focus = {.Pointer, .Navigation},
+		   },
+		   ..modifiers,
+	   ) ||
+	   button_key_activated(button_id) {
 		toggle_state^ = !toggle_state^
 	}
 }
@@ -237,18 +228,19 @@ toggle_buttons :: proc(id: string, labels: []string, toggle_state: ^int) {
 		item_id := orui.to_id(id, i)
 		response := orui.pointer_response(item_id)
 		if orui.label(
-			orui.id(item_id),
-			label,
-			{
-				font_size = 16,
-				padding = orui.padding(10, 8),
-				background_color = toggle_state^ == i ? highlight_color : .Held in response ? active_color : .Hovered in response ? hovered_color : normal_color,
-				color = rl.BLACK,
-				border = orui.border(1),
-				border_color = orui.focused(item_id) ? rl.BLUE : {100, 100, 100, 255},
-				focus = {.Pointer, .Navigation},
-			},
-		) || button_key_activated(item_id) {
+			   orui.id(item_id),
+			   label,
+			   {
+				   font_size = 16,
+				   padding = orui.padding(10, 8),
+				   background_color = toggle_state^ == i ? highlight_color : .Held in response ? active_color : .Hovered in response ? hovered_color : normal_color,
+				   color = rl.BLACK,
+				   border = orui.border(1),
+				   border_color = orui.focused(item_id) ? rl.BLUE : {100, 100, 100, 255},
+				   focus = {.Pointer, .Navigation},
+			   },
+		   ) ||
+		   button_key_activated(item_id) {
 			toggle_state^ = i
 		}
 	}

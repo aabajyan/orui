@@ -19,33 +19,105 @@ Pointer_Event :: struct {
 	kind:   Pointer_Event_Kind,
 }
 
+Key_Modifier :: enum {
+	Control,
+	Command,
+	Shift,
+	Alt,
+	Super,
+}
+
+Key_Modifiers :: bit_set[Key_Modifier;u8]
+TEXT_KEY_MODIFIERS: Key_Modifiers : {.Control, .Command, .Shift, .Alt, .Super}
+
+Key_Event_Kind :: enum {
+	Pressed,
+	Released,
+}
+
+Key_Event :: struct {
+	key:       rl.KeyboardKey,
+	modifiers: Key_Modifiers,
+	kind:      Key_Event_Kind,
+	repeat:    bool,
+}
+
+// Queue a normalized key event produced outside Raylib's polling path.
+queue_key_event :: proc(ctx: ^Context, event: Key_Event) {
+	assert(ctx != nil)
+	if ctx.pending_key_event_count >= len(ctx.pending_key_events) do return
+
+	ctx.pending_key_events[ctx.pending_key_event_count] = event
+	ctx.pending_key_event_count += 1
+}
+
+has_pending_input :: proc(ctx: ^Context) -> bool {
+	return ctx != nil && ctx.pending_key_event_count > 0
+}
+
 Input_Frame :: struct {
 	pointer_position: rl.Vector2,
 	scroll:           rl.Vector2,
 	pointer_events:   []Pointer_Event,
+	key_events:       []Key_Event,
+	text_events:      []rune,
+	modifiers:        Key_Modifiers,
 }
 
 @(private)
 handle_input_state :: proc(ctx: ^Context) {
-	events: [POINTER_BUTTON_COUNT * 2]Pointer_Event
-	event_count := 0
+	pointer_events: [POINTER_BUTTON_COUNT * 2]Pointer_Event
+	pointer_event_count := 0
 	for button in rl.MouseButton {
 		if rl.IsMouseButtonPressed(button) {
-			events[event_count] = {
+			pointer_events[pointer_event_count] = {
 				button = button,
 				kind   = .Pressed,
 			}
-			event_count += 1
+			pointer_event_count += 1
 		}
 		button_index := int(button)
 		if rl.IsMouseButtonReleased(button) ||
 		   (ctx.pointer_buttons_down[button_index] && !rl.IsMouseButtonDown(button)) {
-			events[event_count] = {
+			pointer_events[pointer_event_count] = {
 				button = button,
 				kind   = .Released,
 			}
-			event_count += 1
+			pointer_event_count += 1
 		}
+	}
+
+	modifiers := current_key_modifiers()
+	key_events: [MAX_KEY_EVENTS]Key_Event
+	key_event_count := 0
+	for key in rl.KeyboardKey {
+		pressed := rl.IsKeyPressed(key)
+		repeated := rl.IsKeyPressedRepeat(key)
+		if (pressed || repeated) && key_event_count < len(key_events) {
+			key_events[key_event_count] = {
+				key       = key,
+				modifiers = modifiers,
+				kind      = .Pressed,
+				repeat    = repeated,
+			}
+			key_event_count += 1
+		}
+		if rl.IsKeyReleased(key) && key_event_count < len(key_events) {
+			key_events[key_event_count] = {
+				key       = key,
+				modifiers = modifiers,
+				kind      = .Released,
+			}
+			key_event_count += 1
+		}
+	}
+
+	text_events: [MAX_TEXT_EVENTS]rune
+	text_event_count := 0
+	for char := rl.GetCharPressed(); char != 0; char = rl.GetCharPressed() {
+		if text_event_count >= len(text_events) do continue
+		text_events[text_event_count] = char
+		text_event_count += 1
 	}
 
 	handle_input_frame(
@@ -53,13 +125,31 @@ handle_input_state :: proc(ctx: ^Context) {
 		{
 			pointer_position = rl.GetMousePosition(),
 			scroll = rl.GetMouseWheelMoveV(),
-			pointer_events = events[:event_count],
+			pointer_events = pointer_events[:pointer_event_count],
+			key_events = key_events[:key_event_count],
+			text_events = text_events[:text_event_count],
+			modifiers = modifiers,
 		},
 	)
 }
 
 @(private)
 handle_input_frame :: proc(ctx: ^Context, input: Input_Frame) {
+	pending_count := min(ctx.pending_key_event_count, len(ctx.key_events))
+	input_count := min(len(input.key_events), len(ctx.key_events) - pending_count)
+	ctx.key_event_count = pending_count + input_count
+	ctx.key_modifiers = input.modifiers
+	for event, index in ctx.pending_key_events[:pending_count] {
+		ctx.key_events[index] = event
+		ctx.key_event_consumed[index] = false
+	}
+	ctx.pending_key_event_count = 0
+	for event, index in input.key_events[:input_count] {
+		event_index := pending_count + index
+		ctx.key_events[event_index] = event
+		ctx.key_event_consumed[event_index] = false
+	}
+
 	left_released := false
 	for event in input.pointer_events {
 		button := int(event.button)
@@ -84,7 +174,64 @@ handle_input_frame :: proc(ctx: ^Context, input: Input_Frame) {
 	if ctx.pointer_pressed_id != 0 && ctx.pointer_pressed_button == .LEFT {
 		handle_pointer_focus(ctx, input.pointer_position)
 	}
-	handle_keyboard_input(ctx)
+	if key_pressed(.TAB, required = {.Shift}, repeat = false) {
+		move_focus(.Backward)
+	} else if key_pressed(.TAB, repeat = false) {
+		move_focus(.Forward)
+	}
+	handle_keyboard_input(ctx, input.text_events)
+}
+
+SHORTCUT_MODIFIER :: Key_Modifiers{.Command} when ODIN_OS == .Darwin else Key_Modifiers{.Control}
+
+// Consume a matching press. Set focus to restrict the match to that focus owner.
+// Required modifiers must be down; optional modifiers may also be down.
+key_pressed :: proc(
+	key: rl.KeyboardKey,
+	focus: Id = 0,
+	required: Key_Modifiers = {},
+	optional: Key_Modifiers = {},
+	repeat := true,
+) -> bool {
+	ctx := current_context
+	if focus != 0 {
+		if ctx.focus_id != focus do return false
+		if ctx.popup_count > 0 &&
+		   !element_is_in_subtree(ctx, focus, ctx.popups[ctx.popup_count - 1].id) {
+			return false
+		}
+	}
+	for index in 0 ..< ctx.key_event_count {
+		if ctx.key_event_consumed[index] do continue
+		event := &ctx.key_events[index]
+		if event.kind != .Pressed || event.key != key do continue
+		if event.repeat && !repeat do continue
+		if !key_modifiers_match(event.modifiers, required, optional) do continue
+
+		ctx.key_event_consumed[index] = true
+		return true
+	}
+	return false
+}
+
+@(private)
+key_modifiers_match :: proc(actual, required, optional: Key_Modifiers) -> bool {
+	for modifier in Key_Modifier {
+		if modifier in required && modifier not_in actual do return false
+		if modifier in actual && modifier not_in required && modifier not_in optional do return false
+	}
+	return true
+}
+
+@(private)
+current_key_modifiers :: proc() -> Key_Modifiers {
+	modifiers: Key_Modifiers
+	if rl.IsKeyDown(.LEFT_CONTROL) || rl.IsKeyDown(.RIGHT_CONTROL) do modifiers += {.Control}
+	if rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT) do modifiers += {.Shift}
+	if rl.IsKeyDown(.LEFT_ALT) || rl.IsKeyDown(.RIGHT_ALT) do modifiers += {.Alt}
+	if rl.IsKeyDown(.LEFT_SUPER) || rl.IsKeyDown(.RIGHT_SUPER) do modifiers += {.Command} when ODIN_OS == .Darwin else {.Super}
+
+	return modifiers
 }
 
 @(private)
@@ -110,7 +257,7 @@ update_pointer_response :: proc(ctx: ^Context, input: Input_Frame) {
 				ctx.pointer_released_id = ctx.pointer_owner_id
 				ctx.pointer_released_button = event.button
 				if ctx.pointer_hover_id != 0 &&
-				   pointer_target_is_in_subtree(ctx, ctx.pointer_hover_id, ctx.pointer_owner_id) {
+				   element_is_in_subtree(ctx, ctx.pointer_hover_id, ctx.pointer_owner_id) {
 					ctx.pointer_clicked_id = ctx.pointer_owner_id
 				}
 				ctx.pointer_owner_id = 0
@@ -236,8 +383,7 @@ handle_pointer_focus :: proc(ctx: ^Context, position: rl.Vector2) {
 
 	element := &elements[focus_index]
 	if element.editable {
-		if ctx.focus == focus_index &&
-		   (ctx.selecting || rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT)) {
+		if ctx.focus == focus_index && (ctx.selecting || .Shift in ctx.key_modifiers) {
 			ctx.text_selection_mode = .Character
 			ctx.text_selection.end = text_caret_from_point(ctx, element, position)
 			ctx.caret_index = ctx.text_selection.end
@@ -345,27 +491,28 @@ update_text_drag_selection :: proc(ctx: ^Context, element: ^Element, position: r
 }
 
 @(private)
-handle_keyboard_input :: proc(ctx: ^Context) {
+handle_keyboard_input :: proc(ctx: ^Context, text_events: []rune) {
 	elements := &ctx.elements[previous_buffer(ctx)]
 	if ctx.focus != 0 {
 		element := &elements[ctx.focus]
 		if !element.editable {
 			return
-		} else if rl.IsKeyPressed(.ENTER) && element.overflow == .Visible {
+		} else if element.overflow == .Visible &&
+		   key_pressed(.ENTER, focus = element.id, optional = TEXT_KEY_MODIFIERS, repeat = false) {
 			clear_focus_context(ctx)
 		} else {
 			text_input := element.text_input
-			ctrl_down := rl.IsKeyDown(.LEFT_CONTROL) || rl.IsKeyDown(.RIGHT_CONTROL)
-			cmd_down := rl.IsKeyDown(.LEFT_SUPER) || rl.IsKeyDown(.RIGHT_SUPER)
-			shift_down := rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT)
+			ctrl_down := .Control in ctx.key_modifiers
+			cmd_down := .Command in ctx.key_modifiers
+			shift_down := .Shift in ctx.key_modifiers
 
 			when ODIN_OS == .Darwin {
-				word_modifier := rl.IsKeyDown(.LEFT_ALT) || rl.IsKeyDown(.RIGHT_ALT)
+				word_modifier := .Alt in ctx.key_modifiers
 			} else {
 				word_modifier := ctrl_down
 			}
 
-			for char := rl.GetCharPressed(); char != 0; char = rl.GetCharPressed() {
+			for char in text_events {
 				if char == '\r' || char == '\n' {
 					continue
 				}
@@ -386,7 +533,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 				}
 			}
 
-			if key_pressed(ctx, .LEFT) {
+			if key_pressed(.LEFT, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
 				next :=
 					word_modifier ? utf8_prev_word(text_input, ctx.caret_index) : utf8_prev(text_input, ctx.caret_index)
 				if shift_down {
@@ -400,7 +547,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 				set_caret_index(ctx, element, next)
 			}
 
-			if key_pressed(ctx, .RIGHT) {
+			if key_pressed(.RIGHT, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
 				next :=
 					word_modifier ? utf8_next_word(text_input, ctx.caret_index) : utf8_next(text_input, ctx.caret_index)
 				if shift_down {
@@ -414,7 +561,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 				set_caret_index(ctx, element, next)
 			}
 
-			if rl.IsKeyPressed(.HOME) {
+			if key_pressed(.HOME, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
 				next_index := 0
 				if ctrl_down || cmd_down || element.overflow == .Visible {
 					next_index = 0
@@ -432,7 +579,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 				set_caret_index(ctx, element, next_index)
 			}
 
-			if rl.IsKeyPressed(.END) {
+			if key_pressed(.END, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
 				next_index := len(text_input.buf)
 				if ctrl_down || cmd_down || element.overflow == .Visible {
 					next_index = len(text_input.buf)
@@ -451,7 +598,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 			}
 
 			if element.overflow == .Wrap {
-				if key_pressed(ctx, .UP) {
+				if key_pressed(.UP, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
 					next := caret_index_up(ctx, element, ctx.caret_position)
 					if shift_down {
 						if !has_text_selection(ctx) {
@@ -464,7 +611,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 					set_caret_index(ctx, element, next)
 				}
 
-				if key_pressed(ctx, .DOWN) {
+				if key_pressed(.DOWN, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
 					next := caret_index_down(ctx, element, ctx.caret_position)
 					if shift_down {
 						if !has_text_selection(ctx) {
@@ -477,7 +624,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 					set_caret_index(ctx, element, next)
 				}
 
-				if key_pressed(ctx, .PAGE_UP) {
+				if key_pressed(.PAGE_UP, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
 					next := caret_index_up(ctx, element, ctx.caret_position, 5)
 					if shift_down {
 						if !has_text_selection(ctx) {
@@ -490,7 +637,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 					set_caret_index(ctx, element, next)
 				}
 
-				if key_pressed(ctx, .PAGE_DOWN) {
+				if key_pressed(.PAGE_DOWN, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
 					next := caret_index_down(ctx, element, ctx.caret_position, 5)
 					if shift_down {
 						if !has_text_selection(ctx) {
@@ -504,7 +651,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 				}
 			}
 
-			if key_pressed(ctx, .BACKSPACE) {
+			if key_pressed(.BACKSPACE, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
 				caret := ctx.caret_index
 				if has_text_selection(ctx) {
 					caret = delete_text_selection(ctx, element)
@@ -517,7 +664,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 				set_caret_index(ctx, element, caret)
 			}
 
-			if key_pressed(ctx, .DELETE) {
+			if key_pressed(.DELETE, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
 				if has_text_selection(ctx) {
 					caret := delete_text_selection(ctx, element)
 					set_caret_index(ctx, element, caret)
@@ -528,7 +675,8 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 				element.text = strings.to_string(text_input^)
 			}
 
-			if key_pressed(ctx, .ENTER) && element.overflow == .Wrap {
+			if key_pressed(.ENTER, focus = element.id, optional = TEXT_KEY_MODIFIERS) &&
+			   element.overflow == .Wrap {
 				caret := ctx.caret_index
 				if has_text_selection(ctx) {
 					caret = delete_text_selection(ctx, element)
@@ -539,13 +687,13 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 				set_caret_index(ctx, element, caret + bytes_inserted)
 			}
 
-			if rl.IsKeyPressed(.A) && (ctrl_down || cmd_down) {
+			if key_pressed(.A, focus = element.id, required = SHORTCUT_MODIFIER) {
 				ctx.text_selection.start = 0
 				ctx.text_selection.end = len(text_input.buf)
 				set_caret_index(ctx, element, len(text_input.buf))
 			}
 
-			if rl.IsKeyPressed(.C) && (ctrl_down || cmd_down) {
+			if key_pressed(.C, focus = element.id, required = SHORTCUT_MODIFIER) {
 				if has_text_selection(ctx) {
 					a, b := get_text_selection(ctx)
 					selected_text := string(text_input.buf[a:b])
@@ -558,7 +706,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 				}
 			}
 
-			if rl.IsKeyPressed(.X) && (ctrl_down || cmd_down) {
+			if key_pressed(.X, focus = element.id, required = SHORTCUT_MODIFIER) {
 				if has_text_selection(ctx) {
 					a, b := get_text_selection(ctx)
 					selected_text := string(text_input.buf[a:b])
@@ -575,7 +723,7 @@ handle_keyboard_input :: proc(ctx: ^Context) {
 				}
 			}
 
-			if key_pressed(ctx, .V) && (ctrl_down || cmd_down) {
+			if key_pressed(.V, focus = element.id, required = SHORTCUT_MODIFIER) {
 				clipboard_text := rl.GetClipboardText()
 				if clipboard_text != nil {
 					text := string(clipboard_text)
@@ -612,6 +760,10 @@ move_focus :: proc(direction: Focus_Direction) {
 
 		element := &elements[candidate]
 		if element.disabled == .True || .Navigation not_in element.focus do continue
+		if ctx.popup_count > 0 &&
+		   !element_is_in_subtree(ctx, element.id, ctx.popups[ctx.popup_count - 1].id) {
+			continue
+		}
 
 		set_focus_element(ctx, buffer, candidate)
 		return
@@ -625,7 +777,8 @@ set_focus_element :: proc(ctx: ^Context, buffer: int, index: i32) {
 	ctx.focus_id = element.id
 	ctx.text_selection = {}
 	ctx.selecting = false
-	ctx.caret_index = element.editable && element.text_input != nil ? len(element.text_input.buf) : -1
+	ctx.caret_index =
+		element.editable && element.text_input != nil ? len(element.text_input.buf) : -1
 	ctx.caret_time = 0
 	clear_text_click_state(ctx)
 }
@@ -705,11 +858,6 @@ point_in_element :: proc(p: rl.Vector2, element: ^Element) -> bool {
 	}
 
 	return true
-}
-
-@(private)
-key_pressed :: proc(ctx: ^Context, key: rl.KeyboardKey) -> bool {
-	return rl.IsKeyPressed(key) || rl.IsKeyPressedRepeat(key)
 }
 
 @(private)

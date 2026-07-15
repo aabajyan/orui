@@ -51,6 +51,7 @@ Scene :: enum {
 	Test_Text,
 	Test_Scroll,
 	Test_Animation,
+	Test_Popup,
 }
 
 main :: proc() {
@@ -178,6 +179,8 @@ main :: proc() {
 			render_test_scroll()
 		case .Test_Animation:
 			render_test_animation()
+		case .Test_Popup:
+			render_test_popup()
 		}
 
 		orui.label(
