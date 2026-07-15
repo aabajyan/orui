@@ -291,10 +291,12 @@ handle_input_state_with :: proc(
 	}
 
 	scroll_consumed := false
+	scroll_blocking_index: i32 = -1
 	target_found := false
 
 	for i := ctx.sorted_count - 1; i >= 0; i -= 1 {
-		element := &elements[ctx.sorted[i]]
+		element_index := ctx.sorted[i]
+		element := &elements[element_index]
 
 		if element.disabled == .True {
 			continue
@@ -304,7 +306,13 @@ handle_input_state_with :: proc(
 			continue
 		}
 
-		if !scroll_consumed {
+		if !scroll_consumed &&
+		   (scroll_blocking_index < 0 ||
+				   element_is_same_layer_ancestor(
+					   elements,
+					   scroll_blocking_index,
+					   element_index,
+				   )) {
 			if scroll.x != 0 && scrolls_x(element) {
 				scroll_offset := get_scroll_offset(element)
 				old := scroll_offset.x
@@ -342,6 +350,7 @@ handle_input_state_with :: proc(
 		}
 
 		if !target_found && element.block == .True {
+			scroll_blocking_index = element_index
 			target_found = true
 			ctx.pointer_hover_id = element.id
 		}
@@ -360,6 +369,19 @@ handle_input_state_with :: proc(
 		ctx.selecting = false
 	}
 
+}
+
+@(private)
+element_is_same_layer_ancestor :: proc(
+	elements: ^[MAX_ELEMENTS]Element,
+	child_index, candidate_index: i32,
+) -> bool {
+	layer := elements[child_index]._layer
+	for index := child_index;; index = elements[index].parent {
+		if elements[index]._layer != layer do return false
+		if index == candidate_index do return true
+		if index == 0 do return false
+	}
 }
 
 @(private)

@@ -185,6 +185,45 @@ closing_popup_restores_saved_focus_owner :: proc(t: ^testing.T) {
 }
 
 @(test)
+popup_blocks_wheel_from_parent_scroll_container :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	parent_id := orui.to_id("scroll parent")
+	popup_id := orui.to_id("popup")
+
+	inputs := [2]orui.Input_Frame{{}, {pointer_position = {75, 40}, scroll = {0, -1}}}
+	for input in inputs {
+		orui.begin_with_input(ctx, 200, 100, 0, input)
+		{orui.container(
+				orui.id(parent_id),
+				{
+					width = orui.fixed(200),
+					height = orui.fixed(100),
+					scroll = orui.scroll(.Vertical),
+					clip = {.Self, {}},
+				},
+			)
+			orui.container(orui.id("content"), {width = orui.fixed(200), height = orui.fixed(300)})
+			orui.open_popup(popup_id)
+			if orui.begin_popup(
+				orui.id(popup_id),
+				{position = {.Fixed, {50, 20}}, width = orui.fixed(100), height = orui.fixed(60)},
+			) {
+				orui.end_popup()
+			}
+		}
+		orui.end()
+	}
+
+	parent := find_element(ctx, parent_id)
+	testing.expect(t, parent != nil)
+	testing.expect_value(t, parent.scroll.offset.y, 0)
+}
+
+@(test)
 opening_popup_releases_background_keyboard_focus :: proc(t: ^testing.T) {
 	ctx := new(orui.Context)
 	defer free(ctx)
@@ -197,21 +236,18 @@ opening_popup_releases_background_keyboard_focus :: proc(t: ^testing.T) {
 
 	orui.begin_with_input(ctx, 300, 200, 0, {})
 	{orui.container(
-		orui.id(background_id),
-		{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
-	)}
+			orui.id(background_id),
+			{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
+		)}
 	orui.request_focus(background_id)
 	testing.expect(t, orui.focused(background_id))
 	orui.open_popup(popup_id)
 	testing.expect(t, !orui.focused(background_id))
-	if orui.begin_popup(
-		orui.id(popup_id),
-		{width = orui.fixed(100), height = orui.fixed(80)},
-	) {
+	if orui.begin_popup(orui.id(popup_id), {width = orui.fixed(100), height = orui.fixed(80)}) {
 		{orui.container(
-			orui.id(item_id),
-			{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
-		)}
+				orui.id(item_id),
+				{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
+			)}
 		orui.end_popup()
 	}
 	orui.end()
@@ -221,20 +257,17 @@ opening_popup_releases_background_keyboard_focus :: proc(t: ^testing.T) {
 	}
 	orui.begin_with_input(ctx, 300, 200, 0, input)
 	{orui.container(
-		orui.id(background_id),
-		{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
-	)}
+			orui.id(background_id),
+			{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
+		)}
 	orui.request_focus(background_id)
 	testing.expect(t, !orui.focused(background_id))
 	testing.expect(t, !orui.key_pressed(.ENTER, focus = background_id))
-	if orui.begin_popup(
-		orui.id(popup_id),
-		{width = orui.fixed(100), height = orui.fixed(80)},
-	) {
+	if orui.begin_popup(orui.id(popup_id), {width = orui.fixed(100), height = orui.fixed(80)}) {
 		{orui.container(
-			orui.id(item_id),
-			{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
-		)}
+				orui.id(item_id),
+				{width = orui.fixed(80), height = orui.fixed(30), focus = {.Navigation}},
+			)}
 		orui.request_focus(item_id)
 		orui.request_focus(background_id)
 		testing.expect(t, orui.focused(item_id))
