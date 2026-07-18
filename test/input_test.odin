@@ -89,7 +89,7 @@ shortcut_label_uses_platform_modifier_style :: proc(t: ^testing.T) {
 	label := orui.shortcut_label(shortcut)
 	defer delete(label)
 
-	expected := "⌃⌥⇧⌘K" when ODIN_OS == .Darwin else "Ctrl+Alt+Shift+K"
+	expected := "Ctrl+Alt+Shift+Cmd+K" when ODIN_OS == .Darwin else "Ctrl+Alt+Shift+K"
 	testing.expect_value(t, label, expected)
 }
 
@@ -98,7 +98,7 @@ shortcut_label_formats_punctuation_key :: proc(t: ^testing.T) {
 	label := orui.shortcut_label({key = .EQUAL, modifiers = {.Primary}})
 	defer delete(label)
 
-	expected := "⌘=" when ODIN_OS == .Darwin else "Ctrl+="
+	expected := "Cmd+=" when ODIN_OS == .Darwin else "Ctrl+="
 	testing.expect_value(t, label, expected)
 }
 

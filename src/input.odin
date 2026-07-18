@@ -192,10 +192,10 @@ shortcut_label :: proc(shortcut: Shortcut, allocator := context.allocator) -> st
 	defer strings.builder_destroy(&builder)
 
 	when ODIN_OS == .Darwin {
-		if .Control in chord.modifiers do strings.write_string(&builder, "⌃")
-		if .Alt in chord.modifiers do strings.write_string(&builder, "⌥")
-		if .Shift in chord.modifiers do strings.write_string(&builder, "⇧")
-		if .Command in chord.modifiers do strings.write_string(&builder, "⌘")
+		if .Control in chord.modifiers do strings.write_string(&builder, "Ctrl+")
+		if .Alt in chord.modifiers do strings.write_string(&builder, "Alt+")
+		if .Shift in chord.modifiers do strings.write_string(&builder, "Shift+")
+		if .Command in chord.modifiers do strings.write_string(&builder, "Cmd+")
 	} else {
 		if .Control in chord.modifiers do strings.write_string(&builder, "Ctrl+")
 		if .Alt in chord.modifiers do strings.write_string(&builder, "Alt+")
