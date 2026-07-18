@@ -61,8 +61,8 @@ Context :: struct {
 	pointer_clicked_id:      Id,
 	// cursor output
 	cursor_request_id:       Id,
-	cursor_requested_kind:   rl.MouseCursor,
-	cursor_emitted_kind:     rl.MouseCursor,
+	cursor_requested_kind:   Cursor,
+	cursor_emitted_kind:     Cursor,
 	cursor_emitted:          bool,
 	// popup lifecycle
 	popups:                  [MAX_POPUPS]Popup_State,
@@ -197,7 +197,7 @@ _begin_frame :: proc(ctx: ^Context, width, height, dt: f32, input: Input_Frame, 
 	ctx.parent = 0
 	ctx.popup_begin_count = 0
 	ctx.cursor_request_id = 0
-	ctx.cursor_requested_kind = .DEFAULT
+	ctx.cursor_requested_kind = .Default
 
 	ctx.dt = dt > 0 ? dt : rl.GetFrameTime()
 	ctx.caret_time += ctx.dt

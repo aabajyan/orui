@@ -2,14 +2,13 @@ package orui_test
 
 import orui "../src"
 import "core:testing"
-import rl "vendor:raylib"
 
 @(private = "file")
 cursor_test_frame :: proc(
 	ctx: ^orui.Context,
 	input: orui.Input_Frame,
 	request := true,
-	kind := rl.MouseCursor.IBEAM,
+	kind := orui.Cursor.Text,
 ) -> []orui.RenderCommand {
 	orui.begin_with_input(ctx, 200, 100, 0, input)
 	target_id := orui.to_id("cursor target")
@@ -44,34 +43,34 @@ cursor_route_test_frame :: proc(
 		{orui.container(orui.id(child_id), {width = orui.grow(), height = orui.grow()})}
 	}
 	if request {
-		orui.request_cursor(child_id, .IBEAM)
-		orui.request_cursor(parent_id, .POINTING_HAND)
+		orui.request_cursor(child_id, .Text)
+		orui.request_cursor(parent_id, .PointingHand)
 	}
 	return orui.end()
 }
 
 @(private = "file")
-find_cursor_command :: proc(commands: []orui.RenderCommand) -> (rl.MouseCursor, bool) {
+find_cursor_command :: proc(commands: []orui.RenderCommand) -> (orui.Cursor, bool) {
 	for command in commands {
 		if command.type == .Cursor {
 			data := command.data.(orui.RenderCommandDataCursor)
 			return data.kind, true
 		}
 	}
-	return .DEFAULT, false
+	return .Default, false
 }
 
 @(private = "file")
 pointing_hand_cursor_style :: proc(element: ^orui.Element) {
-	element.cursor = rl.MouseCursor.POINTING_HAND
+	element.cursor = orui.Cursor.PointingHand
 }
 
 @(private = "file")
 declarative_cursor_test_frame :: proc(
 	ctx: ^orui.Context,
 	input: orui.Input_Frame,
-	declaration: Maybe(rl.MouseCursor) = rl.MouseCursor.IBEAM,
-	requested: Maybe(rl.MouseCursor) = nil,
+	declaration: Maybe(orui.Cursor) = orui.Cursor.Text,
+	requested: Maybe(orui.Cursor) = nil,
 	modifier := false,
 ) -> []orui.RenderCommand {
 	orui.begin_with_input(ctx, 200, 100, 0, input)
@@ -97,7 +96,7 @@ declarative_cursor_test_frame :: proc(
 declarative_cursor_route_test_frame :: proc(
 	ctx: ^orui.Context,
 	input: orui.Input_Frame,
-	child_cursor: Maybe(rl.MouseCursor) = nil,
+	child_cursor: Maybe(orui.Cursor) = nil,
 ) -> []orui.RenderCommand {
 	orui.begin_with_input(ctx, 200, 100, 0, input)
 	{orui.container(
@@ -107,7 +106,7 @@ declarative_cursor_route_test_frame :: proc(
 				width = orui.fixed(150),
 				height = orui.fixed(80),
 				padding = orui.padding(20),
-				cursor = .IBEAM,
+				cursor = .Text,
 			},
 		)
 		{orui.container(
@@ -130,7 +129,7 @@ declarative_element_cursor_is_emitted_when_hovered :: proc(t: ^testing.T) {
 
 	kind, ok := find_cursor_command(commands)
 	testing.expect(t, ok)
-	testing.expect_value(t, kind, rl.MouseCursor.IBEAM)
+	testing.expect_value(t, kind, orui.Cursor.Text)
 }
 
 @(test)
@@ -145,7 +144,7 @@ element_modifier_can_declare_cursor :: proc(t: ^testing.T) {
 
 	kind, ok := find_cursor_command(commands)
 	testing.expect(t, ok)
-	testing.expect_value(t, kind, rl.MouseCursor.POINTING_HAND)
+	testing.expect_value(t, kind, orui.Cursor.PointingHand)
 }
 
 @(test)
@@ -155,17 +154,17 @@ manual_request_can_override_declaration_for_the_same_element :: proc(t: ^testing
 	orui.init(ctx)
 	defer orui.destroy(ctx)
 
-	declarative_cursor_test_frame(ctx, {}, .IBEAM, .CROSSHAIR)
+	declarative_cursor_test_frame(ctx, {}, .Text, .Crosshair)
 	commands := declarative_cursor_test_frame(
 		ctx,
 		{pointer_position = {100, 50}},
-		.IBEAM,
-		.CROSSHAIR,
+		.Text,
+		.Crosshair,
 	)
 
 	kind, ok := find_cursor_command(commands)
 	testing.expect(t, ok)
-	testing.expect_value(t, kind, rl.MouseCursor.CROSSHAIR)
+	testing.expect_value(t, kind, orui.Cursor.Crosshair)
 }
 
 @(test)
@@ -180,7 +179,7 @@ unset_child_cursor_does_not_cancel_ancestor_declaration :: proc(t: ^testing.T) {
 
 	kind, ok := find_cursor_command(commands)
 	testing.expect(t, ok)
-	testing.expect_value(t, kind, rl.MouseCursor.IBEAM)
+	testing.expect_value(t, kind, orui.Cursor.Text)
 }
 
 @(test)
@@ -190,13 +189,13 @@ explicit_default_child_cursor_overrides_ancestor_declaration :: proc(t: ^testing
 	orui.init(ctx)
 	defer orui.destroy(ctx)
 
-	declarative_cursor_route_test_frame(ctx, {}, .DEFAULT)
-	declarative_cursor_route_test_frame(ctx, {pointer_position = {30, 15}}, .DEFAULT)
-	commands := declarative_cursor_route_test_frame(ctx, {pointer_position = {100, 50}}, .DEFAULT)
+	declarative_cursor_route_test_frame(ctx, {}, .Default)
+	declarative_cursor_route_test_frame(ctx, {pointer_position = {30, 15}}, .Default)
+	commands := declarative_cursor_route_test_frame(ctx, {pointer_position = {100, 50}}, .Default)
 
 	kind, ok := find_cursor_command(commands)
 	testing.expect(t, ok)
-	testing.expect_value(t, kind, rl.MouseCursor.DEFAULT)
+	testing.expect_value(t, kind, orui.Cursor.Default)
 }
 
 @(test)
@@ -212,7 +211,7 @@ cursor_change_is_emitted_as_a_render_command :: proc(t: ^testing.T) {
 	testing.expect(t, .Hovered in orui.pointer_response(orui.to_id("cursor target")))
 	kind, ok := find_cursor_command(commands)
 	testing.expect(t, ok)
-	testing.expect_value(t, kind, rl.MouseCursor.IBEAM)
+	testing.expect_value(t, kind, orui.Cursor.Text)
 }
 
 @(test)
@@ -264,7 +263,7 @@ cursor_change_back_to_default_is_emitted :: proc(t: ^testing.T) {
 
 	kind, ok := find_cursor_command(commands)
 	testing.expect(t, ok)
-	testing.expect_value(t, kind, rl.MouseCursor.DEFAULT)
+	testing.expect_value(t, kind, orui.Cursor.Default)
 }
 
 @(test)
@@ -279,7 +278,7 @@ direct_hovered_element_cursor_beats_a_later_ancestor_request :: proc(t: ^testing
 
 	kind, ok := find_cursor_command(commands)
 	testing.expect(t, ok)
-	testing.expect_value(t, kind, rl.MouseCursor.IBEAM)
+	testing.expect_value(t, kind, orui.Cursor.Text)
 }
 
 @(test)
@@ -300,9 +299,9 @@ active_pointer_owner_keeps_its_cursor_outside_the_element :: proc(t: ^testing.T)
 	)
 	testing.expect(t, .Held in orui.pointer_response(orui.to_id("cursor target")))
 
-	commands := cursor_test_frame(ctx, {pointer_position = {10, 10}}, true, .RESIZE_ALL)
+	commands := cursor_test_frame(ctx, {pointer_position = {10, 10}}, true, .Grab)
 
 	kind, ok := find_cursor_command(commands)
 	testing.expect(t, ok)
-	testing.expect_value(t, kind, rl.MouseCursor.RESIZE_ALL)
+	testing.expect_value(t, kind, orui.Cursor.Grab)
 }

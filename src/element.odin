@@ -345,7 +345,7 @@ ElementConfig :: struct {
 	editable:         bool,
 	// Cursor requested while this element or its descendants own the pointer path.
 	// Nil means this element does not declare a cursor.
-	cursor:           Maybe(rl.MouseCursor),
+	cursor:           Maybe(Cursor),
 
 	// Scroll configuration
 	scroll:           ScrollConfig,
@@ -422,7 +422,7 @@ Element :: struct {
 	hit_slop:          Edges,
 	focus:             Focus_Policy,
 	editable:          bool,
-	cursor:            Maybe(rl.MouseCursor),
+	cursor:            Maybe(Cursor),
 
 	// scroll
 	scroll:            ScrollConfig,

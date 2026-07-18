@@ -46,7 +46,7 @@ render_command :: proc(command: RenderCommand) {
 	case RenderCommandDataScissorEnd:
 		rl.EndScissorMode()
 	case RenderCommandDataCursor:
-		rl.SetMouseCursor(data.kind)
+		apply_cursor(data.kind)
 	case RenderCommandDataCustom:
 	}
 }

@@ -72,7 +72,7 @@ RenderCommandDataScissorStart :: struct {
 RenderCommandDataScissorEnd :: struct {}
 
 RenderCommandDataCursor :: struct {
-	kind: rl.MouseCursor,
+	kind: Cursor,
 }
 
 RenderCommandDataCustom :: struct {
