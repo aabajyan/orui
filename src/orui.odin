@@ -64,6 +64,8 @@ Context :: struct {
 	cursor_requested_kind:   Cursor,
 	cursor_emitted_kind:     Cursor,
 	cursor_emitted:          bool,
+	// resize lifecycle
+	resize_drag:             Resize_Drag_Session,
 	// popup lifecycle
 	popups:                  [MAX_POPUPS]Popup_State,
 	popup_count:             int,

@@ -45,6 +45,7 @@ Features:
   - Interleave your own rendering with the UI
 - Pointer routing through element subtrees
   - Non-visual hit slop for thin interaction targets
+- Resizable element edges and corners
 - Cursor
 - Animation helpers
 
@@ -83,6 +84,7 @@ To do:
 	- [request_focus(), clear_focus()](#request_focus-clear_focus)
 	- [move_focus()](#move_focus)
 	- [set_hit_slop()](#set_hit_slop)
+	- [resizable()](#resizable)
 - [Animation](#animation)
 - [Element config](#element-config)
   - [Config helpers](#config-helpers)
@@ -516,7 +518,35 @@ Expands pointer hit testing around an existing element without changing its layo
 orui.set_hit_slop(panel_id, {left = 10, bottom = 10})
 ```
 
-Useful for thin borders and resize edges. Exact resize-edge meaning remains caller-owned; hit slop only participates in ORUI hit testing and layer priority.
+Useful for thin borders and custom handles. Hit slop only participates in ORUI hit testing and layer priority; use `resizable` for standard resize edges.
+
+### resizable()
+
+Turns the selected edges and corners of an existing element into resize handles. Pass a caller-owned rectangle in ORUI units and call after declaring the element:
+
+```odin
+panel_rect := rl.Rectangle{340, 170, 280, 260}
+
+{orui.container(orui.id(panel_id), {
+	position = {.Fixed, {panel_rect.x, panel_rect.y}},
+	width = orui.fixed(panel_rect.width),
+	height = orui.fixed(panel_rect.height),
+})}
+
+resizing := orui.resizable(
+	panel_id,
+	{.Left, .Bottom},
+	&panel_rect,
+	min_width = 180,
+	min_height = 120,
+)
+```
+
+`Resize_Edges` can contain `Left`, `Right`, `Top`, and `Bottom`. Corners are enabled when both adjoining edges are present and take priority over the side handles. The function returns true while a handle is hovered or actively dragged.
+
+Left and top handles update the rectangle origin as well as its size, keeping the opposite edge fixed. Right and bottom handles leave the origin fixed. Every update is derived from the rectangle captured at drag start, so incremental rounding does not cause drift.
+
+Minimum and maximum sizes use the same units as the rectangle; a maximum of zero means unbounded. `hit_size` is the full side-handle thickness centered on the edge, and `corner_size` is the full square size centered on a corner.
 
 ## Animation
 
