@@ -4,6 +4,120 @@ import orui "../src"
 import "core:strings"
 import "core:testing"
 
+@(test)
+shortcut_chord_resolves_semantic_modifiers_for_the_platform :: proc(t: ^testing.T) {
+	shortcut := orui.Shortcut {
+		key       = .K,
+		modifiers = {.Primary, .Control, .Alt, .Shift, .Super},
+	}
+
+	expected: orui.Key_Modifiers = {.Control, .Alt, .Shift}
+	expected += {.Command} when ODIN_OS == .Darwin else {.Super}
+
+	testing.expect_value(
+		t,
+		orui.shortcut_chord(shortcut),
+		orui.Key_Chord{key = .K, modifiers = expected},
+	)
+}
+
+@(test)
+shortcut_press_matches_the_exact_chord_and_is_consumed_once :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event {
+			{key = .K, modifiers = orui.SHORTCUT_MODIFIER, kind = .Pressed},
+		},
+	}
+	orui.begin_with_input(ctx, 100, 40, 0, input)
+	shortcut := orui.Shortcut {
+		key       = .K,
+		modifiers = {.Primary},
+	}
+	testing.expect(t, orui.shortcut_pressed(shortcut))
+	testing.expect(t, !orui.shortcut_pressed(shortcut))
+	orui.end()
+}
+
+@(test)
+shortcut_press_rejects_undeclared_modifiers :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event {
+			{key = .K, modifiers = orui.SHORTCUT_MODIFIER + {.Shift}, kind = .Pressed},
+		},
+	}
+	orui.begin_with_input(ctx, 100, 40, 0, input)
+	testing.expect(t, !orui.shortcut_pressed({key = .K, modifiers = {.Primary}}))
+	testing.expect(t, orui.shortcut_pressed({key = .K, modifiers = {.Primary, .Shift}}))
+	orui.end()
+}
+
+@(test)
+shortcut_key_repeat_is_opt_in :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event{{key = .K, kind = .Pressed, repeat = true}},
+	}
+	orui.begin_with_input(ctx, 100, 40, 0, input)
+	shortcut := orui.Shortcut {
+		key = .K,
+	}
+	testing.expect(t, !orui.shortcut_pressed(shortcut))
+	testing.expect(t, orui.shortcut_pressed(shortcut, repeat = true))
+	orui.end()
+}
+
+@(test)
+shortcut_label_uses_platform_modifier_style :: proc(t: ^testing.T) {
+	shortcut := orui.Shortcut {
+		key       = .K,
+		modifiers = {.Primary, .Control, .Alt, .Shift},
+	}
+	label := orui.shortcut_label(shortcut)
+	defer delete(label)
+
+	expected := "⌃⌥⇧⌘K" when ODIN_OS == .Darwin else "Ctrl+Alt+Shift+K"
+	testing.expect_value(t, label, expected)
+}
+
+@(test)
+shortcut_label_formats_punctuation_key :: proc(t: ^testing.T) {
+	label := orui.shortcut_label({key = .EQUAL, modifiers = {.Primary}})
+	defer delete(label)
+
+	expected := "⌘=" when ODIN_OS == .Darwin else "Ctrl+="
+	testing.expect_value(t, label, expected)
+}
+
+@(test)
+shortcut_label_distinguishes_keypad_key :: proc(t: ^testing.T) {
+	label := orui.shortcut_label({key = .KP_ADD})
+	defer delete(label)
+
+	testing.expect_value(t, label, "Numpad +")
+}
+
+@(test)
+shortcut_label_formats_named_key :: proc(t: ^testing.T) {
+	label := orui.shortcut_label({key = .PAGE_DOWN})
+	defer delete(label)
+
+	testing.expect_value(t, label, "Page Down")
+}
+
 @(private = "file")
 focus_test_frame :: proc(ctx: ^orui.Context, input: orui.Input_Frame) {
 	orui.begin_with_input(ctx, 300, 100, 0, input)

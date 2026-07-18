@@ -30,6 +30,184 @@ Key_Modifier :: enum {
 Key_Modifiers :: bit_set[Key_Modifier;u8]
 TEXT_KEY_MODIFIERS: Key_Modifiers : {.Control, .Command, .Shift, .Alt, .Super}
 
+Shortcut_Modifier :: enum {
+	Primary,
+	Control,
+	Alt,
+	Shift,
+	Super,
+}
+
+Shortcut_Modifiers :: bit_set[Shortcut_Modifier;u8]
+
+Shortcut :: struct {
+	key:       rl.KeyboardKey,
+	modifiers: Shortcut_Modifiers,
+}
+
+Key_Chord :: struct {
+	key:       rl.KeyboardKey,
+	modifiers: Key_Modifiers,
+}
+
+@(private, rodata)
+SHORTCUT_KEY_LABELS := #sparse[rl.KeyboardKey]string {
+	.KEY_NULL      = "None",
+	.APOSTROPHE    = "'",
+	.COMMA         = ",",
+	.MINUS         = "-",
+	.PERIOD        = ".",
+	.SLASH         = "/",
+	.ZERO          = "0",
+	.ONE           = "1",
+	.TWO           = "2",
+	.THREE         = "3",
+	.FOUR          = "4",
+	.FIVE          = "5",
+	.SIX           = "6",
+	.SEVEN         = "7",
+	.EIGHT         = "8",
+	.NINE          = "9",
+	.SEMICOLON     = ";",
+	.EQUAL         = "=",
+	.A             = "A",
+	.B             = "B",
+	.C             = "C",
+	.D             = "D",
+	.E             = "E",
+	.F             = "F",
+	.G             = "G",
+	.H             = "H",
+	.I             = "I",
+	.J             = "J",
+	.K             = "K",
+	.L             = "L",
+	.M             = "M",
+	.N             = "N",
+	.O             = "O",
+	.P             = "P",
+	.Q             = "Q",
+	.R             = "R",
+	.S             = "S",
+	.T             = "T",
+	.U             = "U",
+	.V             = "V",
+	.W             = "W",
+	.X             = "X",
+	.Y             = "Y",
+	.Z             = "Z",
+	.LEFT_BRACKET  = "[",
+	.BACKSLASH     = "\\",
+	.RIGHT_BRACKET = "]",
+	.GRAVE         = "`",
+	.SPACE         = "Space",
+	.ESCAPE        = "Esc",
+	.ENTER         = "Enter",
+	.TAB           = "Tab",
+	.BACKSPACE     = "Backspace",
+	.INSERT        = "Insert",
+	.DELETE        = "Delete",
+	.RIGHT         = "Right",
+	.LEFT          = "Left",
+	.DOWN          = "Down",
+	.UP            = "Up",
+	.PAGE_UP       = "Page Up",
+	.PAGE_DOWN     = "Page Down",
+	.HOME          = "Home",
+	.END           = "End",
+	.CAPS_LOCK     = "Caps Lock",
+	.SCROLL_LOCK   = "Scroll Lock",
+	.NUM_LOCK      = "Num Lock",
+	.PRINT_SCREEN  = "Print Screen",
+	.PAUSE         = "Pause",
+	.F1            = "F1",
+	.F2            = "F2",
+	.F3            = "F3",
+	.F4            = "F4",
+	.F5            = "F5",
+	.F6            = "F6",
+	.F7            = "F7",
+	.F8            = "F8",
+	.F9            = "F9",
+	.F10           = "F10",
+	.F11           = "F11",
+	.F12           = "F12",
+	.LEFT_SHIFT    = "Left Shift",
+	.LEFT_CONTROL  = "Left Control",
+	.LEFT_ALT      = "Left Alt",
+	.LEFT_SUPER    = "Left Super",
+	.RIGHT_SHIFT   = "Right Shift",
+	.RIGHT_CONTROL = "Right Control",
+	.RIGHT_ALT     = "Right Alt",
+	.RIGHT_SUPER   = "Right Super",
+	.KB_MENU       = "Menu",
+	.KP_0          = "Numpad 0",
+	.KP_1          = "Numpad 1",
+	.KP_2          = "Numpad 2",
+	.KP_3          = "Numpad 3",
+	.KP_4          = "Numpad 4",
+	.KP_5          = "Numpad 5",
+	.KP_6          = "Numpad 6",
+	.KP_7          = "Numpad 7",
+	.KP_8          = "Numpad 8",
+	.KP_9          = "Numpad 9",
+	.KP_DECIMAL    = "Numpad .",
+	.KP_DIVIDE     = "Numpad /",
+	.KP_MULTIPLY   = "Numpad *",
+	.KP_SUBTRACT   = "Numpad -",
+	.KP_ADD        = "Numpad +",
+	.KP_ENTER      = "Numpad Enter",
+	.KP_EQUAL      = "Numpad =",
+	.BACK          = "Back",
+	.MENU          = "Menu",
+	.VOLUME_UP     = "Volume Up",
+	.VOLUME_DOWN   = "Volume Down",
+}
+
+// Resolve semantic shortcut modifiers to the platform's input modifiers.
+shortcut_chord :: proc(shortcut: Shortcut) -> Key_Chord {
+	modifiers: Key_Modifiers
+	for modifier in Shortcut_Modifier {
+		if modifier not_in shortcut.modifiers do continue
+		switch modifier {
+		case .Primary:
+			modifiers += {.Command} when ODIN_OS == .Darwin else {.Control}
+		case .Control:
+			modifiers += {.Control}
+		case .Alt:
+			modifiers += {.Alt}
+		case .Shift:
+			modifiers += {.Shift}
+		case .Super:
+			modifiers += {.Command} when ODIN_OS == .Darwin else {.Super}
+		}
+	}
+	return {key = shortcut.key, modifiers = modifiers}
+}
+
+// Return a platform-aware label allocated with allocator. The caller owns it.
+shortcut_label :: proc(shortcut: Shortcut, allocator := context.allocator) -> string {
+	chord := shortcut_chord(shortcut)
+	builder := strings.builder_make(context.temp_allocator)
+	defer strings.builder_destroy(&builder)
+
+	when ODIN_OS == .Darwin {
+		if .Control in chord.modifiers do strings.write_string(&builder, "⌃")
+		if .Alt in chord.modifiers do strings.write_string(&builder, "⌥")
+		if .Shift in chord.modifiers do strings.write_string(&builder, "⇧")
+		if .Command in chord.modifiers do strings.write_string(&builder, "⌘")
+	} else {
+		if .Control in chord.modifiers do strings.write_string(&builder, "Ctrl+")
+		if .Alt in chord.modifiers do strings.write_string(&builder, "Alt+")
+		if .Shift in chord.modifiers do strings.write_string(&builder, "Shift+")
+		if .Super in chord.modifiers do strings.write_string(&builder, "Super+")
+	}
+
+	strings.write_string(&builder, SHORTCUT_KEY_LABELS[chord.key])
+
+	return strings.clone(strings.to_string(builder), allocator)
+}
+
 Key_Event_Kind :: enum {
 	Pressed,
 	Released,
@@ -212,6 +390,12 @@ key_pressed :: proc(
 		return true
 	}
 	return false
+}
+
+// Consume one exact shortcut press through the normal focus and popup routing.
+shortcut_pressed :: proc(shortcut: Shortcut, focus: Id = 0, repeat := false) -> bool {
+	chord := shortcut_chord(shortcut)
+	return key_pressed(chord.key, focus = focus, required = chord.modifiers, repeat = repeat)
 }
 
 @(private)
