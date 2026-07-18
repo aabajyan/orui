@@ -2,7 +2,7 @@ package orui
 
 import "core:math/linalg"
 import "core:strings"
-import "core:unicode/utf8"
+import text_edit "core:text/edit"
 import rl "vendor:raylib"
 
 TEXT_MULTI_CLICK_TIME: f64 : 0.5
@@ -689,7 +689,7 @@ update_text_drag_selection :: proc(ctx: ^Context, element: ^Element, position: r
 		set_text_selection(ctx, element, selection, caret)
 	case .Character:
 		end := text_caret_from_point(ctx, element, position)
-		ctx.text_selection.end = end
+		ctx.text_selection = {ctx.text_selection_anchor.start, end}
 		ctx.caret_index = end
 		ctx.caret_time = 0
 		ensure_caret_visible(ctx, element, ctx.caret_index)
@@ -704,13 +704,25 @@ handle_keyboard_input :: proc(ctx: ^Context, text_events: []rune) {
 		if !element.editable {
 			return
 		} else if element.overflow == .Visible &&
-		   key_pressed(.ENTER, focus = element.id, optional = TEXT_KEY_MODIFIERS, repeat = false) {
+		   (key_pressed(
+					   .ENTER,
+					   focus = element.id,
+					   optional = TEXT_KEY_MODIFIERS,
+					   repeat = false,
+				   ) ||
+				   key_pressed(
+					   .KP_ENTER,
+					   focus = element.id,
+					   optional = TEXT_KEY_MODIFIERS,
+					   repeat = false,
+				   )) {
 			clear_focus_context(ctx)
 		} else {
-			text_input := element.text_input
 			ctrl_down := .Control in ctx.key_modifiers
 			cmd_down := .Command in ctx.key_modifiers
 			shift_down := .Shift in ctx.key_modifiers
+			state := text_editor_bind(ctx, element)
+			interacted := false
 
 			when ODIN_OS == .Darwin {
 				word_modifier := .Alt in ctx.key_modifiers
@@ -722,228 +734,239 @@ handle_keyboard_input :: proc(ctx: ^Context, text_events: []rune) {
 				if char == '\r' || char == '\n' {
 					continue
 				}
-				if has_text_selection(ctx) {
-					ctx.caret_index = delete_text_selection(ctx, element)
-				}
-				char_bytes, char_len := utf8.encode_rune(char)
-				bytes_inserted := insert_bytes(
-					text_input,
-					ctx.caret_index,
-					string(char_bytes[:char_len]),
-				)
-				element.text = strings.to_string(text_input^)
-				set_caret_index(ctx, element, ctx.caret_index + bytes_inserted)
+				text_edit.input_rune(state, char)
+				interacted = true
+			}
 
-				if bytes_inserted == 0 {
-					break
-				}
+			if key_pressed(.Z, focus = element.id, required = SHORTCUT_MODIFIER + {.Shift}) {
+				text_edit.perform_command(state, .Redo)
+				interacted = true
+			} else if key_pressed(.Z, focus = element.id, required = SHORTCUT_MODIFIER) {
+				text_edit.perform_command(state, .Undo)
+				interacted = true
+			} else if key_pressed(.Y, focus = element.id, required = SHORTCUT_MODIFIER) {
+				text_edit.perform_command(state, .Redo)
+				interacted = true
 			}
 
 			if key_pressed(.LEFT, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
-				next :=
-					word_modifier ? utf8_prev_word(text_input, ctx.caret_index) : utf8_prev(text_input, ctx.caret_index)
-				if shift_down {
-					if !has_text_selection(ctx) {
-						ctx.text_selection.start = ctx.caret_index
+				translation: text_edit.Translation = word_modifier ? .Word_Left : .Left
+				when ODIN_OS == .Darwin {
+					if cmd_down {
+						state.line_start = caret_index_start_of_line(
+							ctx,
+							element,
+							state.selection[0],
+						)
+						translation = .Soft_Line_Start
 					}
-					ctx.text_selection.end = next
-				} else {
-					clear_text_selection(ctx)
 				}
-				set_caret_index(ctx, element, next)
+				text_editor_move(state, translation, shift_down)
+				interacted = true
 			}
 
 			if key_pressed(.RIGHT, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
-				next :=
-					word_modifier ? utf8_next_word(text_input, ctx.caret_index) : utf8_next(text_input, ctx.caret_index)
-				if shift_down {
-					if !has_text_selection(ctx) {
-						ctx.text_selection.start = ctx.caret_index
+				translation: text_edit.Translation = word_modifier ? .Word_Right : .Right
+				when ODIN_OS == .Darwin {
+					if cmd_down {
+						state.line_end = caret_index_end_of_line(ctx, element, state.selection[0])
+						translation = .Soft_Line_End
 					}
-					ctx.text_selection.end = next
-				} else {
-					clear_text_selection(ctx)
 				}
-				set_caret_index(ctx, element, next)
+				text_editor_move(state, translation, shift_down)
+				interacted = true
 			}
 
 			if key_pressed(.HOME, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
-				next_index := 0
+				translation: text_edit.Translation = .Start
 				if ctrl_down || cmd_down || element.overflow == .Visible {
-					next_index = 0
+					translation = .Start
 				} else {
-					next_index = caret_index_start_of_line(ctx, element, ctx.caret_index)
+					state.line_start = caret_index_start_of_line(ctx, element, state.selection[0])
+					translation = .Soft_Line_Start
 				}
-				if shift_down {
-					if !has_text_selection(ctx) {
-						ctx.text_selection.start = ctx.caret_index
-					}
-					ctx.text_selection.end = next_index
-				} else {
-					clear_text_selection(ctx)
-				}
-				set_caret_index(ctx, element, next_index)
+				text_editor_move(state, translation, shift_down)
+				interacted = true
 			}
 
 			if key_pressed(.END, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
-				next_index := len(text_input.buf)
+				translation: text_edit.Translation = .End
 				if ctrl_down || cmd_down || element.overflow == .Visible {
-					next_index = len(text_input.buf)
+					translation = .End
 				} else {
-					next_index = caret_index_end_of_line(ctx, element, ctx.caret_index)
+					state.line_end = caret_index_end_of_line(ctx, element, state.selection[0])
+					translation = .Soft_Line_End
 				}
-				if shift_down {
-					if !has_text_selection(ctx) {
-						ctx.text_selection.start = ctx.caret_index
-					}
-					ctx.text_selection.end = next_index
-				} else {
-					clear_text_selection(ctx)
-				}
-				set_caret_index(ctx, element, next_index)
+				text_editor_move(state, translation, shift_down)
+				interacted = true
 			}
 
 			if element.overflow == .Wrap {
 				if key_pressed(.UP, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
-					next := caret_index_up(ctx, element, ctx.caret_position)
-					if shift_down {
-						if !has_text_selection(ctx) {
-							ctx.text_selection.start = ctx.caret_index
+					translation: text_edit.Translation = .Up
+					state.up_index = caret_index_up(ctx, element, ctx.caret_position)
+					when ODIN_OS == .Darwin {
+						if cmd_down {
+							translation = .Start
 						}
-						ctx.text_selection.end = next
-					} else {
-						clear_text_selection(ctx)
 					}
-					set_caret_index(ctx, element, next)
+					text_editor_move(state, translation, shift_down)
+					interacted = true
 				}
 
 				if key_pressed(.DOWN, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
-					next := caret_index_down(ctx, element, ctx.caret_position)
-					if shift_down {
-						if !has_text_selection(ctx) {
-							ctx.text_selection.start = ctx.caret_index
+					translation: text_edit.Translation = .Down
+					state.down_index = caret_index_down(ctx, element, ctx.caret_position)
+					when ODIN_OS == .Darwin {
+						if cmd_down {
+							translation = .End
 						}
-						ctx.text_selection.end = next
-					} else {
-						clear_text_selection(ctx)
 					}
-					set_caret_index(ctx, element, next)
+					text_editor_move(state, translation, shift_down)
+					interacted = true
 				}
 
 				if key_pressed(.PAGE_UP, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
-					next := caret_index_up(ctx, element, ctx.caret_position, 5)
-					if shift_down {
-						if !has_text_selection(ctx) {
-							ctx.text_selection.start = ctx.caret_index
-						}
-						ctx.text_selection.end = next
-					} else {
-						clear_text_selection(ctx)
-					}
-					set_caret_index(ctx, element, next)
+					state.up_index = caret_index_up(ctx, element, ctx.caret_position, 5)
+					text_editor_move(state, .Up, shift_down)
+					interacted = true
 				}
 
 				if key_pressed(.PAGE_DOWN, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
-					next := caret_index_down(ctx, element, ctx.caret_position, 5)
-					if shift_down {
-						if !has_text_selection(ctx) {
-							ctx.text_selection.start = ctx.caret_index
-						}
-						ctx.text_selection.end = next
-					} else {
-						clear_text_selection(ctx)
-					}
-					set_caret_index(ctx, element, next)
+					state.down_index = caret_index_down(ctx, element, ctx.caret_position, 5)
+					text_editor_move(state, .Down, shift_down)
+					interacted = true
 				}
 			}
 
 			if key_pressed(.BACKSPACE, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
-				caret := ctx.caret_index
-				if has_text_selection(ctx) {
-					caret = delete_text_selection(ctx, element)
+				command: text_edit.Command = word_modifier ? .Delete_Word_Left : .Backspace
+				when ODIN_OS == .Darwin {
+					if cmd_down {
+						state.line_start = caret_index_start_of_line(
+							ctx,
+							element,
+							state.selection[0],
+						)
+						text_edit.delete_to(state, .Soft_Line_Start)
+					} else {
+						text_edit.perform_command(state, command)
+					}
 				} else {
-					prev := utf8_prev(text_input, ctx.caret_index)
-					delete_range(text_input, prev, ctx.caret_index)
-					caret = prev
+					text_edit.perform_command(state, command)
 				}
-				element.text = strings.to_string(text_input^)
-				set_caret_index(ctx, element, caret)
+				interacted = true
 			}
 
 			if key_pressed(.DELETE, focus = element.id, optional = TEXT_KEY_MODIFIERS) {
-				if has_text_selection(ctx) {
-					caret := delete_text_selection(ctx, element)
-					set_caret_index(ctx, element, caret)
-				} else {
-					next := utf8_next(text_input, ctx.caret_index)
-					delete_range(text_input, ctx.caret_index, next)
-				}
-				element.text = strings.to_string(text_input^)
+				command: text_edit.Command = word_modifier ? .Delete_Word_Right : .Delete
+				text_edit.perform_command(state, command)
+				interacted = true
 			}
 
-			if key_pressed(.ENTER, focus = element.id, optional = TEXT_KEY_MODIFIERS) &&
+			if (key_pressed(.ENTER, focus = element.id, optional = TEXT_KEY_MODIFIERS) ||
+				   key_pressed(.KP_ENTER, focus = element.id, optional = TEXT_KEY_MODIFIERS)) &&
 			   element.overflow == .Wrap {
-				caret := ctx.caret_index
-				if has_text_selection(ctx) {
-					caret = delete_text_selection(ctx, element)
-				}
-				char_bytes, char_len := utf8.encode_rune('\n')
-				bytes_inserted := insert_bytes(text_input, caret, string(char_bytes[:char_len]))
-				element.text = strings.to_string(text_input^)
-				set_caret_index(ctx, element, caret + bytes_inserted)
+				text_edit.perform_command(state, .New_Line)
+				interacted = true
 			}
 
 			if key_pressed(.A, focus = element.id, required = SHORTCUT_MODIFIER) {
-				ctx.text_selection.start = 0
-				ctx.text_selection.end = len(text_input.buf)
-				set_caret_index(ctx, element, len(text_input.buf))
+				text_edit.perform_command(state, .Select_All)
+				interacted = true
 			}
 
 			if key_pressed(.C, focus = element.id, required = SHORTCUT_MODIFIER) {
-				if has_text_selection(ctx) {
-					a, b := get_text_selection(ctx)
-					selected_text := string(text_input.buf[a:b])
-					rl.SetClipboardText(
-						strings.clone_to_cstring(
-							selected_text,
-							ctx.allocator[current_buffer(ctx)],
-						),
-					)
+				if text_edit.has_selection(state) {
+					text_edit.perform_command(state, .Copy)
 				}
 			}
 
 			if key_pressed(.X, focus = element.id, required = SHORTCUT_MODIFIER) {
-				if has_text_selection(ctx) {
-					a, b := get_text_selection(ctx)
-					selected_text := string(text_input.buf[a:b])
-					rl.SetClipboardText(
-						strings.clone_to_cstring(
-							selected_text,
-							ctx.allocator[current_buffer(ctx)],
-						),
-					)
-					delete_range(text_input, a, b)
-					element.text = strings.to_string(text_input^)
-					set_caret_index(ctx, element, a)
-					clear_text_selection(ctx)
+				if text_edit.has_selection(state) {
+					text_edit.perform_command(state, .Cut)
+					interacted = true
 				}
 			}
 
 			if key_pressed(.V, focus = element.id, required = SHORTCUT_MODIFIER) {
-				clipboard_text := rl.GetClipboardText()
-				if clipboard_text != nil {
-					text := string(clipboard_text)
-					caret := ctx.caret_index
-					if has_text_selection(ctx) {
-						caret = delete_text_selection(ctx, element)
-					}
-					bytes_inserted := insert_bytes(text_input, caret, text)
-					element.text = strings.to_string(text_input^)
-					set_caret_index(ctx, element, caret + bytes_inserted)
-				}
+				text_edit.perform_command(state, .Paste)
+				interacted = true
 			}
+
+			text_editor_sync(ctx, element, state, interacted)
 		}
 	}
+}
+
+@(private)
+text_editor_bind :: proc(ctx: ^Context, element: ^Element) -> ^text_edit.State {
+	state := &ctx.text_edit_state
+	id := u64(element.id)
+	// `text_edit.begin` clears history, so only initialise when the active editor changes.
+	if state.id != id || (state.builder != nil && state.builder != element.text_input) {
+		text_edit.setup_once(state, element.text_input)
+		state.id = id
+		state.last_edit_time = {}
+	} else {
+		state.builder = element.text_input
+	}
+
+	state.selection = {ctx.caret_index, ctx.caret_index}
+	if has_text_selection(ctx) {
+		state.selection[1] = ctx.text_selection.start
+	}
+	text_edit.update_time(state)
+	return state
+}
+
+@(private)
+text_editor_move :: proc(
+	state: ^text_edit.State,
+	translation: text_edit.Translation,
+	selecting: bool,
+) {
+	if selecting {
+		text_edit.select_to(state, translation)
+	} else {
+		text_edit.move_to(state, translation)
+	}
+}
+
+@(private)
+text_editor_sync :: proc(
+	ctx: ^Context,
+	element: ^Element,
+	state: ^text_edit.State,
+	interacted: bool,
+) {
+	ctx.caret_index = state.selection[0]
+	if text_edit.has_selection(state) {
+		ctx.text_selection = {state.selection[1], state.selection[0]}
+	} else {
+		ctx.text_selection = {}
+	}
+	element.text = strings.to_string(element.text_input^)
+	if interacted {
+		ctx.caret_time = 0
+		ensure_caret_visible(ctx, element, ctx.caret_index)
+	}
+}
+
+@(private)
+text_editor_set_clipboard :: proc(user_data: rawptr, text: string) -> bool {
+	ctx := cast(^Context)user_data
+	rl.SetClipboardText(strings.clone_to_cstring(text, ctx.allocator[current_buffer(ctx)]))
+	return true
+}
+
+@(private)
+text_editor_get_clipboard :: proc(user_data: rawptr) -> (text: string, ok: bool) {
+	clipboard_text := rl.GetClipboardText()
+	if clipboard_text == nil {
+		return "", false
+	}
+	return string(clipboard_text), true
 }
 
 move_focus :: proc(direction: Focus_Direction) {
@@ -1076,24 +1099,4 @@ set_caret_index :: proc(ctx: ^Context, element: ^Element, index: int) {
 @(private)
 has_text_selection :: #force_inline proc(ctx: ^Context) -> bool {
 	return ctx.text_selection.start != ctx.text_selection.end
-}
-
-@(private)
-get_text_selection :: #force_inline proc(ctx: ^Context) -> (int, int) {
-	a := min(ctx.text_selection.start, ctx.text_selection.end)
-	b := max(ctx.text_selection.start, ctx.text_selection.end)
-	return a, b
-}
-
-@(private)
-clear_text_selection :: #force_inline proc(ctx: ^Context) {
-	ctx.text_selection = {}
-}
-
-@(private)
-delete_text_selection :: #force_inline proc(ctx: ^Context, element: ^Element) -> int {
-	a, b := get_text_selection(ctx)
-	delete_range(element.text_input, a, b)
-	clear_text_selection(ctx)
-	return a
 }

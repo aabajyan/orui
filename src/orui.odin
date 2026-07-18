@@ -4,6 +4,7 @@ import "base:intrinsics"
 import "base:runtime"
 import "core:log"
 import "core:mem/virtual"
+import text_edit "core:text/edit"
 import rl "vendor:raylib"
 
 MAX_ELEMENTS :: 8192
@@ -84,6 +85,7 @@ Context :: struct {
 	text_click_time:         f64,
 	text_click_position:     rl.Vector2,
 	text_click_count:        int,
+	text_edit_state:         text_edit.State,
 }
 
 init :: proc(ctx: ^Context) {
@@ -94,12 +96,17 @@ init :: proc(ctx: ^Context) {
 		}
 		ctx.allocator[i] = virtual.arena_allocator(&ctx.arena[i])
 	}
+	text_edit.init(&ctx.text_edit_state, context.allocator, context.allocator)
+	ctx.text_edit_state.set_clipboard = text_editor_set_clipboard
+	ctx.text_edit_state.get_clipboard = text_editor_get_clipboard
+	ctx.text_edit_state.clipboard_user_data = ctx
 	when ODIN_OS == .Darwin {
 		platform_input_init(ctx)
 	}
 }
 
 destroy :: proc(ctx: ^Context) {
+	text_edit.destroy(&ctx.text_edit_state)
 	when ODIN_OS == .Darwin {
 		platform_input_destroy(ctx)
 	}

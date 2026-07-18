@@ -30,11 +30,6 @@ is_continuation_byte :: #force_inline proc(b: u8) -> bool {
 	return b >= 0x80 && b < 0xc0
 }
 
-@(private = "file")
-is_space :: #force_inline proc(b: u8) -> bool {
-	return b == ' ' || b == '\t' || b == '\n'
-}
-
 @(private)
 utf8_prev :: proc {
 	utf8_prev_builder,
@@ -70,38 +65,6 @@ utf8_next_builder :: proc(text: ^strings.Builder, index: int) -> int {
 	index := index
 	index += 1
 	for index < len(text.buf) && is_continuation_byte(text.buf[index]) {
-		index += 1
-	}
-	return index
-}
-
-@(private)
-utf8_prev_word :: proc(text: ^strings.Builder, index: int) -> int {
-	if index <= 0 {
-		return 0
-	}
-
-	index := index
-	for index > 0 && is_space(text.buf[index - 1]) {
-		index -= 1
-	}
-	for index > 0 && !is_space(text.buf[index - 1]) {
-		index -= 1
-	}
-	return index
-}
-
-@(private)
-utf8_next_word :: proc(text: ^strings.Builder, index: int) -> int {
-	if index >= len(text.buf) {
-		return len(text.buf)
-	}
-
-	index := index
-	for index < len(text.buf) && is_space(text.buf[index]) {
-		index += 1
-	}
-	for index < len(text.buf) && !is_space(text.buf[index]) {
 		index += 1
 	}
 	return index
@@ -257,26 +220,6 @@ extend_text_selection :: proc(
 		return {anchor.end, target.start}, target.start
 	}
 	return {anchor.start, target.end}, target.end
-}
-
-@(private)
-insert_bytes :: proc(builder: ^strings.Builder, position: int, text: string) -> int {
-	if position < 0 || position > len(builder.buf) {
-		return 0
-	}
-
-	if ok, _ := inject_at(&builder.buf, position, text); !ok {
-		n := cap(builder.buf) - len(builder.buf)
-		for is_continuation_byte(text[n]) {
-			n -= 1
-		}
-		if ok2, _ := inject_at(&builder.buf, position, text[:n]); !ok2 {
-			n = 0
-		}
-		return n
-	}
-
-	return len(text)
 }
 
 @(private)

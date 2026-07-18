@@ -40,6 +40,7 @@ Features:
   - Double click, triple click
   - Mouse and keyboard text selection
   - Copy/cut/paste
+  - Undo/redo
 - Custom render events
   - Interleave your own rendering with the UI
 - Pointer routing through element subtrees
@@ -52,7 +53,6 @@ To do:
 - Grid justify/align
 - Text inputs
   - Character filtering
-  - Undo/redo (maybe)
   - Drag and drop (maybe)
   - Placeholder (maybe)
   - Customise text select background colour

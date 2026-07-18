@@ -371,6 +371,796 @@ multiline_text_input_consumes_enter_and_inserts_newline :: proc(t: ^testing.T) {
 }
 
 @(test)
+multiline_text_input_consumes_keypad_enter_and_inserts_newline :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "a")
+	id := orui.to_id("keypad textarea")
+
+	orui.begin_with_input(ctx, 200, 100, 0, {})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.request_focus(id)
+	orui.end()
+
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event{{key = .KP_ENTER, kind = .Pressed}},
+	}
+	orui.begin_with_input(ctx, 200, 100, 0, input)
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	testing.expect(t, !orui.key_pressed(.KP_ENTER, focus = id))
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "a\n")
+}
+
+@(test)
+focused_text_input_deletes_the_previous_word_with_the_platform_shortcut :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "hello world")
+	id := orui.to_id("word delete input")
+
+	orui.begin_with_input(ctx, 200, 40, 0, {})
+	orui.text_input(orui.id(id), &text, {})
+	orui.request_focus(id)
+	orui.end()
+
+	word_modifier :=
+		orui.Key_Modifiers{.Alt} when ODIN_OS == .Darwin else orui.Key_Modifiers{.Control}
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event {
+			{key = .BACKSPACE, modifiers = word_modifier, kind = .Pressed},
+		},
+		modifiers  = word_modifier,
+	}
+	orui.begin_with_input(ctx, 200, 40, 0, input)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "hello ")
+}
+
+@(test)
+focused_text_input_deletes_the_next_word_with_the_platform_shortcut :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "hello world")
+	id := orui.to_id("forward word delete input")
+	word_modifier :=
+		orui.Key_Modifiers{.Alt} when ODIN_OS == .Darwin else orui.Key_Modifiers{.Control}
+
+	orui.begin_with_input(ctx, 200, 40, 0, {})
+	orui.text_input(orui.id(id), &text, {})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .LEFT, modifiers = word_modifier, kind = .Pressed},
+			},
+			modifiers = word_modifier,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .DELETE, modifiers = word_modifier, kind = .Pressed},
+			},
+			modifiers = word_modifier,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "hello ")
+}
+
+@(test)
+focused_multiline_text_input_moves_to_line_start_with_command_left_on_macos :: proc(
+	t: ^testing.T,
+) {
+	when ODIN_OS != .Darwin {
+		return
+	}
+
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "first\nsecond")
+	id := orui.to_id("command line start input")
+
+	orui.begin_with_input(ctx, 200, 80, 0, {})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		80,
+		0,
+		{
+			key_events = []orui.Key_Event{{key = .LEFT, modifiers = {.Command}, kind = .Pressed}},
+			modifiers = {.Command},
+		},
+	)
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	orui.begin_with_input(ctx, 200, 80, 0, {text_events = []rune{'X'}})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "first\nXsecond")
+}
+
+@(test)
+focused_multiline_text_input_moves_to_line_end_with_command_right_on_macos :: proc(t: ^testing.T) {
+	when ODIN_OS != .Darwin {
+		return
+	}
+
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "first\nsecond")
+	id := orui.to_id("command line end input")
+
+	orui.begin_with_input(ctx, 200, 80, 0, {})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		80,
+		0,
+		{key_events = []orui.Key_Event{{key = .HOME, kind = .Pressed}}},
+	)
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		80,
+		0,
+		{
+			key_events = []orui.Key_Event{{key = .RIGHT, modifiers = {.Command}, kind = .Pressed}},
+			modifiers = {.Command},
+		},
+	)
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	orui.begin_with_input(ctx, 200, 80, 0, {text_events = []rune{'X'}})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "first\nsecondX")
+}
+
+@(test)
+focused_multiline_text_input_moves_to_document_start_with_command_up_on_macos :: proc(
+	t: ^testing.T,
+) {
+	when ODIN_OS != .Darwin {
+		return
+	}
+
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "first\nsecond")
+	id := orui.to_id("command document start input")
+
+	orui.begin_with_input(ctx, 200, 80, 0, {})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		80,
+		0,
+		{
+			key_events = []orui.Key_Event{{key = .UP, modifiers = {.Command}, kind = .Pressed}},
+			modifiers = {.Command},
+		},
+	)
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	orui.begin_with_input(ctx, 200, 80, 0, {text_events = []rune{'X'}})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "Xfirst\nsecond")
+}
+
+@(test)
+focused_multiline_text_input_moves_to_document_end_with_command_down_on_macos :: proc(
+	t: ^testing.T,
+) {
+	when ODIN_OS != .Darwin {
+		return
+	}
+
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "first\nsecond")
+	id := orui.to_id("command document end input")
+
+	orui.begin_with_input(ctx, 200, 80, 0, {})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		80,
+		0,
+		{
+			key_events = []orui.Key_Event{{key = .HOME, modifiers = {.Command}, kind = .Pressed}},
+			modifiers = {.Command},
+		},
+	)
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		80,
+		0,
+		{
+			key_events = []orui.Key_Event{{key = .DOWN, modifiers = {.Command}, kind = .Pressed}},
+			modifiers = {.Command},
+		},
+	)
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	orui.begin_with_input(ctx, 200, 80, 0, {text_events = []rune{'X'}})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "first\nsecondX")
+}
+
+@(test)
+focused_multiline_text_input_deletes_to_line_start_with_command_backspace_on_macos :: proc(
+	t: ^testing.T,
+) {
+	when ODIN_OS != .Darwin {
+		return
+	}
+
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "first\nsecond")
+	id := orui.to_id("command line delete input")
+
+	orui.begin_with_input(ctx, 200, 80, 0, {})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		80,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .BACKSPACE, modifiers = {.Command}, kind = .Pressed},
+			},
+			modifiers = {.Command},
+		},
+	)
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "first\n")
+}
+
+@(test)
+focused_text_input_undoes_the_last_edit_with_the_primary_shortcut :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "a")
+	id := orui.to_id("undo input")
+
+	orui.begin_with_input(ctx, 200, 40, 0, {})
+	orui.text_input(orui.id(id), &text, {})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(ctx, 200, 40, 0, {text_events = []rune{'b'}})
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+	testing.expect_value(t, strings.to_string(text), "ab")
+
+	input := orui.Input_Frame {
+		key_events = []orui.Key_Event {
+			{key = .Z, modifiers = orui.SHORTCUT_MODIFIER, kind = .Pressed},
+		},
+		modifiers  = orui.SHORTCUT_MODIFIER,
+	}
+	orui.begin_with_input(ctx, 200, 40, 0, input)
+	orui.text_input(orui.id(id), &text, {})
+	testing.expect(t, !orui.shortcut_pressed({key = .Z, modifiers = {.Primary}}, focus = id))
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "a")
+}
+
+@(test)
+focused_text_input_redoes_the_last_undo_with_primary_shift_z :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "a")
+	id := orui.to_id("redo input")
+
+	orui.begin_with_input(ctx, 200, 40, 0, {})
+	orui.text_input(orui.id(id), &text, {})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(ctx, 200, 40, 0, {text_events = []rune{'b'}})
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .Z, modifiers = orui.SHORTCUT_MODIFIER, kind = .Pressed},
+			},
+			modifiers = orui.SHORTCUT_MODIFIER,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+	testing.expect_value(t, strings.to_string(text), "a")
+
+	redo_modifiers := orui.SHORTCUT_MODIFIER + orui.Key_Modifiers{.Shift}
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event{{key = .Z, modifiers = redo_modifiers, kind = .Pressed}},
+			modifiers = redo_modifiers,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	testing.expect(
+		t,
+		!orui.shortcut_pressed({key = .Z, modifiers = {.Primary, .Shift}}, focus = id),
+	)
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "ab")
+}
+
+@(test)
+focused_text_input_redoes_the_last_undo_with_primary_y :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "a")
+	id := orui.to_id("alternate redo input")
+
+	orui.begin_with_input(ctx, 200, 40, 0, {})
+	orui.text_input(orui.id(id), &text, {})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(ctx, 200, 40, 0, {text_events = []rune{'b'}})
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .Z, modifiers = orui.SHORTCUT_MODIFIER, kind = .Pressed},
+			},
+			modifiers = orui.SHORTCUT_MODIFIER,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .Y, modifiers = orui.SHORTCUT_MODIFIER, kind = .Pressed},
+			},
+			modifiers = orui.SHORTCUT_MODIFIER,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	testing.expect(t, !orui.shortcut_pressed({key = .Y, modifiers = {.Primary}}, focus = id))
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "ab")
+}
+
+@(test)
+focused_text_input_undo_restores_deleted_text :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "hello")
+	id := orui.to_id("undo deletion input")
+
+	orui.begin_with_input(ctx, 200, 40, 0, {})
+	orui.text_input(orui.id(id), &text, {})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{key_events = []orui.Key_Event{{key = .BACKSPACE, kind = .Pressed}}},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+	testing.expect_value(t, strings.to_string(text), "hell")
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .Z, modifiers = orui.SHORTCUT_MODIFIER, kind = .Pressed},
+			},
+			modifiers = orui.SHORTCUT_MODIFIER,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "hello")
+}
+
+@(test)
+focused_text_input_undo_restores_forward_deleted_text :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "hello")
+	id := orui.to_id("undo forward deletion input")
+
+	orui.begin_with_input(ctx, 200, 40, 0, {})
+	orui.text_input(orui.id(id), &text, {})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .HOME, kind = .Pressed},
+				{key = .DELETE, kind = .Pressed},
+			},
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+	testing.expect_value(t, strings.to_string(text), "ello")
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .Z, modifiers = orui.SHORTCUT_MODIFIER, kind = .Pressed},
+			},
+			modifiers = orui.SHORTCUT_MODIFIER,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "hello")
+}
+
+@(test)
+focused_multiline_text_input_undo_removes_inserted_newline :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "a")
+	id := orui.to_id("undo newline input")
+
+	orui.begin_with_input(ctx, 200, 100, 0, {})
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		100,
+		0,
+		{key_events = []orui.Key_Event{{key = .ENTER, kind = .Pressed}}},
+	)
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+	testing.expect_value(t, strings.to_string(text), "a\n")
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		100,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .Z, modifiers = orui.SHORTCUT_MODIFIER, kind = .Pressed},
+			},
+			modifiers = orui.SHORTCUT_MODIFIER,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {overflow = .Wrap})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "a")
+}
+
+@(test)
+focused_text_input_replaces_a_selection_and_undo_restores_it :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "hello")
+	id := orui.to_id("replace selection input")
+
+	orui.begin_with_input(ctx, 200, 40, 0, {})
+	orui.text_input(orui.id(id), &text, {})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .A, modifiers = orui.SHORTCUT_MODIFIER, kind = .Pressed},
+			},
+			modifiers = orui.SHORTCUT_MODIFIER,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	orui.begin_with_input(ctx, 200, 40, 0, {text_events = []rune{'X'}})
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+	testing.expect_value(t, strings.to_string(text), "X")
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .Z, modifiers = orui.SHORTCUT_MODIFIER, kind = .Pressed},
+			},
+			modifiers = orui.SHORTCUT_MODIFIER,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "hello")
+}
+
+@(test)
+focused_text_input_left_collapses_the_selection_to_its_start :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "hello")
+	id := orui.to_id("collapse selection input")
+
+	orui.begin_with_input(ctx, 200, 40, 0, {})
+	orui.text_input(orui.id(id), &text, {})
+	orui.request_focus(id)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{
+			key_events = []orui.Key_Event {
+				{key = .A, modifiers = orui.SHORTCUT_MODIFIER, kind = .Pressed},
+			},
+			modifiers = orui.SHORTCUT_MODIFIER,
+		},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		200,
+		40,
+		0,
+		{key_events = []orui.Key_Event{{key = .LEFT, kind = .Pressed}}},
+	)
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	orui.begin_with_input(ctx, 200, 40, 0, {text_events = []rune{'X'}})
+	orui.text_input(orui.id(id), &text, {})
+	orui.end()
+
+	testing.expect_value(t, strings.to_string(text), "Xhello")
+}
+
+@(test)
+pointer_press_in_unfocused_text_area_places_caret_without_selecting_prefix :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	text := strings.builder_make()
+	defer strings.builder_destroy(&text)
+	strings.write_string(&text, "first line\nsecond line")
+	id := orui.to_id("pointer text area")
+	config := orui.ElementConfig {
+		width     = orui.fixed(300),
+		height    = orui.fixed(150),
+		padding   = orui.padding(8),
+		font_size = 16,
+		overflow  = .Wrap,
+	}
+
+	orui.begin_with_input(ctx, 300, 150, 0, {})
+	orui.text_input(orui.id(id), &text, config)
+	orui.end()
+
+	orui.begin_with_input(
+		ctx,
+		300,
+		150,
+		0,
+		{
+			pointer_position = {70, 20},
+			pointer_events = []orui.Pointer_Event{{button = .LEFT, kind = .Pressed}},
+		},
+	)
+	orui.text_input(orui.id(id), &text, config)
+	orui.end()
+	pressed_caret := ctx.caret_index
+
+	// The next frame still has the button held, as it does in the live demo.
+	orui.begin_with_input(ctx, 300, 150, 0, {pointer_position = {70, 20}})
+	orui.text_input(orui.id(id), &text, config)
+	orui.end()
+
+	testing.expect(t, orui.focused(id))
+	testing.expect(t, pressed_caret > 0)
+	testing.expect_value(t, ctx.caret_index, pressed_caret)
+	testing.expect_value(t, ctx.text_selection.start, ctx.text_selection.end)
+}
+
+@(test)
 request_focus_accepts_marked_noneditable_element_only :: proc(t: ^testing.T) {
 	ctx := new(orui.Context)
 	defer free(ctx)
