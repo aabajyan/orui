@@ -59,6 +59,11 @@ Context :: struct {
 	pointer_released_id:     Id,
 	pointer_released_button: rl.MouseButton,
 	pointer_clicked_id:      Id,
+	// cursor output
+	cursor_request_id:       Id,
+	cursor_requested_kind:   rl.MouseCursor,
+	cursor_emitted_kind:     rl.MouseCursor,
+	cursor_emitted:          bool,
 	// popup lifecycle
 	popups:                  [MAX_POPUPS]Popup_State,
 	popup_count:             int,
@@ -191,6 +196,8 @@ _begin_frame :: proc(ctx: ^Context, width, height, dt: f32, input: Input_Frame, 
 	ctx.previous = 0
 	ctx.parent = 0
 	ctx.popup_begin_count = 0
+	ctx.cursor_request_id = 0
+	ctx.cursor_requested_kind = .DEFAULT
 
 	ctx.dt = dt > 0 ? dt : rl.GetFrameTime()
 	ctx.caret_time += ctx.dt
@@ -386,6 +393,9 @@ finalize_element :: proc(ctx: ^Context, index: i32) {
 	flex_finalize_base_size(ctx, index)
 	grid_finalize_base_size(ctx, index)
 	set_flags(element)
+	if cursor, ok := element.cursor.?; ok {
+		request_cursor(element.id, cursor)
+	}
 	if element.parent != 0 {
 		flex_update_parent_size(ctx, element.parent, index)
 		grid_place_child(ctx, element.parent, index)

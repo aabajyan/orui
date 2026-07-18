@@ -52,6 +52,22 @@ pointer_position :: proc() -> rl.Vector2 {
 	return current_context.pointer_position
 }
 
+// Request a cursor for an element on the current pointer hover/owner path.
+// Requests from unrelated or covered elements are ignored.
+request_cursor :: proc(id: Id, kind: rl.MouseCursor) {
+	ctx := current_context
+	target := ctx.pointer_owner_id != 0 ? ctx.pointer_owner_id : ctx.pointer_hover_id
+	if target == 0 || !element_is_in_subtree(ctx, target, id) do return
+	if ctx.cursor_request_id != 0 &&
+	   ctx.cursor_request_id != id &&
+	   element_is_in_subtree(ctx, ctx.cursor_request_id, id) {
+		return
+	}
+
+	ctx.cursor_request_id = id
+	ctx.cursor_requested_kind = kind
+}
+
 bounding_rect :: proc {
 	_bounding_rect,
 	_bounding_rect_string,

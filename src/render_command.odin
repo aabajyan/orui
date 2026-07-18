@@ -3,9 +3,9 @@ package orui
 import rl "vendor:raylib"
 
 RenderCommand :: struct {
-	type: RenderCommandType,
+	type:   RenderCommandType,
 	source: ^Element,
-	data: RenderCommandData,
+	data:   RenderCommandData,
 }
 
 RenderCommandType :: enum {
@@ -16,6 +16,7 @@ RenderCommandType :: enum {
 	Image,
 	ScissorStart,
 	ScissorEnd,
+	Cursor,
 	Custom,
 }
 
@@ -26,6 +27,7 @@ RenderCommandData :: union {
 	RenderCommandDataImage,
 	RenderCommandDataScissorStart,
 	RenderCommandDataScissorEnd,
+	RenderCommandDataCursor,
 	RenderCommandDataCustom,
 }
 
@@ -68,6 +70,10 @@ RenderCommandDataScissorStart :: struct {
 }
 
 RenderCommandDataScissorEnd :: struct {}
+
+RenderCommandDataCursor :: struct {
+	kind: rl.MouseCursor,
+}
 
 RenderCommandDataCustom :: struct {
 	source:       ^Element,

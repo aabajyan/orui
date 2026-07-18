@@ -45,6 +45,8 @@ render_command :: proc(command: RenderCommand) {
 		)
 	case RenderCommandDataScissorEnd:
 		rl.EndScissorMode()
+	case RenderCommandDataCursor:
+		rl.SetMouseCursor(data.kind)
 	case RenderCommandDataCustom:
 	}
 }
@@ -66,9 +68,9 @@ render :: proc(ctx: ^Context) {
 		if element._clip != current_clip {
 			if current_clip.width > 0 && current_clip.height > 0 {
 				ctx.render_commands[ctx.render_command_count] = RenderCommand {
-					type = .ScissorEnd,
+					type   = .ScissorEnd,
 					source = current_clip_source,
-					data = RenderCommandDataScissorEnd{},
+					data   = RenderCommandDataScissorEnd{},
 				}
 				ctx.render_command_count += 1
 				current_clip = {}
@@ -92,11 +94,29 @@ render :: proc(ctx: ^Context) {
 
 	if current_clip != {} {
 		ctx.render_commands[ctx.render_command_count] = RenderCommand {
-			type = .ScissorEnd,
+			type   = .ScissorEnd,
 			source = current_clip_source,
-			data = RenderCommandDataScissorEnd{},
+			data   = RenderCommandDataScissorEnd{},
 		}
 		ctx.render_command_count += 1
+	}
+
+	if !ctx.cursor_emitted || ctx.cursor_requested_kind != ctx.cursor_emitted_kind {
+		cursor_source := &elements[0]
+		if ctx.cursor_request_id != 0 {
+			if index, ok := element_index_by_id(ctx, current_buffer(ctx), ctx.cursor_request_id);
+			   ok {
+				cursor_source = &elements[index]
+			}
+		}
+		ctx.render_commands[ctx.render_command_count] = RenderCommand {
+			type = .Cursor,
+			source = cursor_source,
+			data = RenderCommandDataCursor{kind = ctx.cursor_requested_kind},
+		}
+		ctx.render_command_count += 1
+		ctx.cursor_emitted_kind = ctx.cursor_requested_kind
+		ctx.cursor_emitted = true
 	}
 }
 

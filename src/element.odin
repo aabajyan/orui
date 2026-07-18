@@ -213,7 +213,7 @@ Focus_Mode :: enum {
 	Navigation,
 }
 
-Focus_Policy :: bit_set[Focus_Mode; u8]
+Focus_Policy :: bit_set[Focus_Mode;u8]
 
 Focus_Direction :: enum {
 	Forward,
@@ -343,6 +343,9 @@ ElementConfig :: struct {
 	// How the element can receive focus. Empty means the element is not focusable.
 	focus:            Focus_Policy,
 	editable:         bool,
+	// Cursor requested while this element or its descendants own the pointer path.
+	// Nil means this element does not declare a cursor.
+	cursor:           Maybe(rl.MouseCursor),
 
 	// Scroll configuration
 	scroll:           ScrollConfig,
@@ -419,6 +422,7 @@ Element :: struct {
 	hit_slop:          Edges,
 	focus:             Focus_Policy,
 	editable:          bool,
+	cursor:            Maybe(rl.MouseCursor),
 
 	// scroll
 	scroll:            ScrollConfig,
@@ -542,6 +546,7 @@ configure_element :: proc(
 	element.block = config.block == .Inherit ? parent.block : config.block
 	element.focus = config.focus
 	element.editable = config.editable
+	element.cursor = config.cursor
 
 	// scroll
 	element.scroll = config.scroll

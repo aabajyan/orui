@@ -45,6 +45,7 @@ Features:
   - Interleave your own rendering with the UI
 - Pointer routing through element subtrees
   - Non-visual hit slop for thin interaction targets
+- Cursor
 - Animation helpers
 
 To do:
@@ -77,6 +78,7 @@ To do:
 - [Other functions](#other-functions)
 	- [pointer_response()](#pointer_response)
 	- [pointer_position()](#pointer_position)
+	- [cursor and request_cursor()](#cursor-and-request_cursor)
 	- [focused()](#focused)
 	- [request_focus(), clear_focus()](#request_focus-clear_focus)
 	- [move_focus()](#move_focus)
@@ -405,6 +407,51 @@ Returns the pointer position from the same input snapshot used for routing:
 ```odin
 mouse := orui.pointer_position()
 ```
+
+### cursor and request_cursor()
+
+Declare the usual cursor for an element in its config:
+
+```odin
+{orui.container(orui.id("splitter"), {
+	width = orui.fixed(6),
+	cursor = .RESIZE_EW,
+})}
+```
+
+`cursor` is a `Maybe(rl.MouseCursor)`. Its default `nil` value means the element makes no declaration, so an ancestor declaration can still apply. Set `.DEFAULT` explicitly when a child should restore the default arrow instead. Element modifiers can assign `element.cursor` in the same way.
+
+Declarations apply while the element or one of its descendants is on the current pointer hover or active-owner path. A direct child declaration wins over an ancestor declaration regardless of element finalization order. An active pointer owner keeps its declared cursor while dragging outside its bounds.
+
+Use `request_cursor` when the cursor depends on finer dynamic state that is not represented by an element, such as a custom-rendered canvas subregion:
+
+```odin
+splitter_id := orui.to_id("splitter")
+orui.request_cursor(splitter_id, .RESIZE_EW)
+```
+
+Covered and unrelated requests are ignored. Repeated declarations or requests from the same element use the last kind, so a manual request made after the element is finalized can override its declaration for that frame.
+
+For a custom-rendered subregion, perform the finer geometry check yourself and keep the containing ORUI element as the request owner:
+
+```odin
+if pointer_is_over_handle {
+	orui.request_cursor(canvas_id, .CROSSHAIR)
+}
+```
+
+Cursor intent resets to `.DEFAULT` at the start of every frame. `end()` emits a `.Cursor` render command on the first frame and whenever the resolved cursor changes:
+
+```odin
+render_commands := orui.end()
+for command in render_commands {
+	orui.render_command(command)
+}
+```
+
+`ElementConfig.cursor`, `request_cursor`, and `RenderCommandDataCursor.kind` use `rl.MouseCursor` directly. The built-in renderer passes that value to `SetMouseCursor`; custom renderers should handle the same command themselves. Repeated frames with the same resolved cursor do not emit another cursor command, so consumers must process every command returned by `end()` to stay synchronized.
+
+Like other pointer responses, cursor eligibility uses the previous frame's resolved layout, clipping, layers, and popup routing.
 
 ### focused()
 
@@ -938,6 +985,10 @@ Focus_Mode :: enum {
 
 Focus_Policy :: bit_set[Focus_Mode; u8]
 ```
+
+### cursor
+
+Optionally declares the `rl.MouseCursor` used while the element or its descendants are on the pointer hover or active-owner path. The default `nil` value makes no declaration; `.DEFAULT` explicitly restores the default arrow. See [cursor and request_cursor()](#cursor-and-request_cursor) for routing and precedence rules.
 
 ### scroll
 
