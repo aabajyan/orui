@@ -133,6 +133,21 @@ declarative_element_cursor_is_emitted_when_hovered :: proc(t: ^testing.T) {
 }
 
 @(test)
+declarative_element_can_hide_cursor_when_hovered :: proc(t: ^testing.T) {
+	ctx := new(orui.Context)
+	defer free(ctx)
+	orui.init(ctx)
+	defer orui.destroy(ctx)
+
+	declarative_cursor_test_frame(ctx, {}, .Hidden)
+	commands := declarative_cursor_test_frame(ctx, {pointer_position = {100, 50}}, .Hidden)
+
+	kind, ok := find_cursor_command(commands)
+	testing.expect(t, ok)
+	testing.expect_value(t, kind, orui.Cursor.Hidden)
+}
+
+@(test)
 element_modifier_can_declare_cursor :: proc(t: ^testing.T) {
 	ctx := new(orui.Context)
 	defer free(ctx)

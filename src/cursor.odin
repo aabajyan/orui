@@ -6,6 +6,7 @@ package orui
 // them and falls back to the closest Raylib cursor otherwise.
 Cursor :: enum {
 	Default,
+	Hidden,
 	Text,
 	TextVertical,
 	Crosshair,

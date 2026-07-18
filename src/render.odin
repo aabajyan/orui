@@ -46,7 +46,12 @@ render_command :: proc(command: RenderCommand) {
 	case RenderCommandDataScissorEnd:
 		rl.EndScissorMode()
 	case RenderCommandDataCursor:
-		apply_cursor(data.kind)
+		if data.kind == .Hidden {
+			if !rl.IsCursorHidden() do rl.HideCursor()
+		} else {
+			if rl.IsCursorHidden() do rl.ShowCursor()
+			apply_cursor(data.kind)
+		}
 	case RenderCommandDataCustom:
 	}
 }

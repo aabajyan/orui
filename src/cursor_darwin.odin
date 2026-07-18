@@ -28,7 +28,7 @@ apply_cursor :: proc(kind: Cursor) {
 
 @(private = "file")
 cursor_darwin :: proc(kind: Cursor) -> ^NS.Cursor {
-	switch kind {
+	#partial switch kind {
 	case .Default:
 		return NS.Cursor_arrowCursor()
 	case .Text:

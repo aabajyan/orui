@@ -6,7 +6,7 @@ import rl "vendor:raylib"
 
 @(private = "file")
 cursor_to_raylib :: proc(cursor: Cursor) -> rl.MouseCursor {
-	switch cursor {
+	#partial switch cursor {
 	case .Default:
 		return .DEFAULT
 	case .Text, .TextVertical:
