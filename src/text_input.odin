@@ -1,7 +1,6 @@
 package orui
 
 import "core:math"
-import "core:strings"
 import "core:unicode"
 import "core:unicode/utf8"
 import rl "vendor:raylib"
@@ -26,71 +25,17 @@ TextSelectionClass :: enum u8 {
 }
 
 @(private)
-utf8_prev :: proc {
-	utf8_prev_builder,
-	utf8_prev_string,
+utf8_prev :: proc(text: string, index: int) -> int {
+	index := clamp(index, 0, len(text))
+	_, width := utf8.decode_last_rune(text[:index])
+	return index - width
 }
 
 @(private)
-utf8_prev_builder :: proc(text: ^strings.Builder, index: int) -> int {
-	if index <= 0 {
-		return 0
-	}
-
-	index := index
-	index -= 1
-	for index > 0 && !utf8.rune_start(text.buf[index]) {
-		index -= 1
-	}
-	return index
-}
-
-@(private)
-utf8_next :: proc {
-	utf8_next_builder,
-	utf8_next_string,
-}
-
-@(private)
-utf8_next_builder :: proc(text: ^strings.Builder, index: int) -> int {
-	if index >= len(text.buf) {
-		return len(text.buf)
-	}
-
-	index := index
-	index += 1
-	for index < len(text.buf) && !utf8.rune_start(text.buf[index]) {
-		index += 1
-	}
-	return index
-}
-
-@(private)
-utf8_prev_string :: proc(text: string, idx: int) -> int {
-	if idx <= 0 {
-		return 0
-	}
-
-	index := min(idx, len(text))
-	index -= 1
-	for index > 0 && !utf8.rune_start(text[index]) {
-		index -= 1
-	}
-	return index
-}
-
-@(private)
-utf8_next_string :: proc(text: string, idx: int) -> int {
-	if idx >= len(text) {
-		return len(text)
-	}
-
-	index := max(idx, 0)
-	index += 1
-	for index < len(text) && !utf8.rune_start(text[index]) {
-		index += 1
-	}
-	return index
+utf8_next :: proc(text: string, index: int) -> int {
+	index := clamp(index, 0, len(text))
+	_, width := utf8.decode_rune(text[index:])
+	return index + width
 }
 
 @(private)
