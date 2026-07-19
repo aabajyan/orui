@@ -11,7 +11,7 @@ render_command :: proc(command: RenderCommand) {
 		if has_round_corners(data.corner_radius) {
 			render_rounded_rectangle(data.position, data.size, data.corner_radius, data.color)
 		} else {
-			draw_rectangle(data.position, data.size, data.color)
+			rl.DrawRectangleV(data.position, data.size, data.color)
 		}
 	case RenderCommandDataBorder:
 		if has_round_corners(data.corner_radius) {
@@ -282,7 +282,7 @@ render_rounded_rectangle :: proc(
 ) {
 	// central vertical rectangle
 	if size.x - (corners.top_left + corners.top_right) > 0 {
-		draw_rectangle(
+		rl.DrawRectangleV(
 			{position.x + corners.top_left, position.y},
 			{size.x - (corners.top_left + corners.top_right), size.y},
 			color,
@@ -291,7 +291,7 @@ render_rounded_rectangle :: proc(
 
 	// left bar
 	if corners.top_left + corners.bottom_left < size.y {
-		draw_rectangle(
+		rl.DrawRectangleV(
 			{position.x, position.y + corners.top_left},
 			{corners.top_left, size.y - (corners.top_left + corners.bottom_left)},
 			color,
@@ -300,7 +300,7 @@ render_rounded_rectangle :: proc(
 
 	// right bar
 	if corners.top_right + corners.bottom_right < size.y {
-		draw_rectangle(
+		rl.DrawRectangleV(
 			{position.x + size.x - corners.top_right, position.y + corners.top_right},
 			{corners.top_right, size.y - (corners.top_right + corners.bottom_right)},
 			color,
@@ -367,24 +367,24 @@ render_straight_border :: proc(
 		rl.DrawRectangleLinesEx({position.x, position.y, size.x, size.y}, border.top, color)
 	} else {
 		if border.top > 0 {
-			draw_rectangle({position.x, position.y}, {size.x, border.top}, color)
+			rl.DrawRectangleV({position.x, position.y}, {size.x, border.top}, color)
 		}
 		if border.right > 0 {
-			draw_rectangle(
+			rl.DrawRectangleV(
 				{position.x + size.x - border.right, position.y},
 				{border.right, size.y},
 				color,
 			)
 		}
 		if border.bottom > 0 {
-			draw_rectangle(
+			rl.DrawRectangleV(
 				{position.x, position.y + size.y - border.bottom},
 				{size.x, border.bottom},
 				color,
 			)
 		}
 		if border.left > 0 {
-			draw_rectangle({position.x, position.y}, {border.left, size.y}, color)
+			rl.DrawRectangleV({position.x, position.y}, {border.left, size.y}, color)
 		}
 	}
 }
@@ -400,7 +400,7 @@ render_rounded_border :: proc(
 	radius := clamp_corner_radius(size, corners)
 
 	if border.left > 0 {
-		draw_rectangle(
+		rl.DrawRectangleV(
 			{position.x, position.y + radius.top_left},
 			{border.left, size.y - (radius.top_left + radius.bottom_left)},
 			color,
@@ -408,7 +408,7 @@ render_rounded_border :: proc(
 	}
 
 	if border.right > 0 {
-		draw_rectangle(
+		rl.DrawRectangleV(
 			{position.x + size.x - border.right, position.y + radius.top_right},
 			{border.right, size.y - (radius.top_right + radius.bottom_right)},
 			color,
@@ -416,7 +416,7 @@ render_rounded_border :: proc(
 	}
 
 	if border.top > 0 {
-		draw_rectangle(
+		rl.DrawRectangleV(
 			{position.x + radius.top_left, position.y},
 			{size.x - (radius.top_left + radius.top_right), border.top},
 			color,
@@ -424,7 +424,7 @@ render_rounded_border :: proc(
 	}
 
 	if border.bottom > 0 {
-		draw_rectangle(
+		rl.DrawRectangleV(
 			{position.x + radius.bottom_left, position.y + size.y - border.bottom},
 			{size.x - (radius.bottom_left + radius.bottom_right), border.bottom},
 			color,
@@ -647,9 +647,4 @@ clamp_corner_radius :: proc(size: rl.Vector2, radius: Corners) -> Corners {
 	}
 
 	return radius
-}
-
-@(private)
-draw_rectangle :: proc(position: rl.Vector2, size: rl.Vector2, color: rl.Color) {
-	rl.DrawRectanglePro({position.x, position.y, size.x, size.y}, {}, 0, color)
 }
