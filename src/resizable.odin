@@ -126,7 +126,7 @@ hovered_resize_edges :: proc(
 	// Corners take priority over their overlapping side handles.
 	corners := [4]Resize_Edges{{.Left, .Top}, {.Right, .Top}, {.Left, .Bottom}, {.Right, .Bottom}}
 	for corner in corners {
-		if !resize_edges_supported(edges, corner) do continue
+		if !(corner <= edges) do continue
 		if rl.CheckCollisionPointRec(mouse, resize_corner_hit_rect(box, corner, corner_size)) {
 			return corner
 		}
@@ -140,14 +140,6 @@ hovered_resize_edges :: proc(
 	}
 
 	return {}
-}
-
-@(private = "file")
-resize_edges_supported :: proc(supported, requested: Resize_Edges) -> bool {
-	for edge in requested {
-		if edge not_in supported do return false
-	}
-	return true
 }
 
 @(private = "file")

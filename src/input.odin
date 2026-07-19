@@ -384,7 +384,7 @@ key_pressed :: proc(
 		event := &ctx.key_events[index]
 		if event.kind != .Pressed || event.key != key do continue
 		if event.repeat && !repeat do continue
-		if !key_modifiers_match(event.modifiers, required, optional) do continue
+		if !(event.modifiers >= required && event.modifiers <= required + optional) do continue
 
 		ctx.key_event_consumed[index] = true
 		return true
@@ -396,15 +396,6 @@ key_pressed :: proc(
 shortcut_pressed :: proc(shortcut: Shortcut, focus: Id = 0, repeat := false) -> bool {
 	chord := shortcut_chord(shortcut)
 	return key_pressed(chord.key, focus = focus, required = chord.modifiers, repeat = repeat)
-}
-
-@(private)
-key_modifiers_match :: proc(actual, required, optional: Key_Modifiers) -> bool {
-	for modifier in Key_Modifier {
-		if modifier in required && modifier not_in actual do return false
-		if modifier in actual && modifier not_in required && modifier not_in optional do return false
-	}
-	return true
 }
 
 @(private)
@@ -1060,11 +1051,6 @@ clear_focus_context :: proc(ctx: ^Context) {
 }
 
 @(private)
-point_in_rect :: proc(p: rl.Vector2, pos: rl.Vector2, size: rl.Vector2) -> bool {
-	return p.x >= pos.x && p.y >= pos.y && p.x < pos.x + size.x && p.y < pos.y + size.y
-}
-
-@(private)
 point_in_element :: proc(p: rl.Vector2, element: ^Element) -> bool {
 	position := rl.Vector2 {
 		element._position.x - element.hit_slop.left,
@@ -1074,26 +1060,20 @@ point_in_element :: proc(p: rl.Vector2, element: ^Element) -> bool {
 		element._size.x + element.hit_slop.left + element.hit_slop.right,
 		element._size.y + element.hit_slop.top + element.hit_slop.bottom,
 	}
-	if !point_in_rect(p, position, size) {
+	if !rl.CheckCollisionPointRec(p, {position.x, position.y, size.x, size.y}) {
 		return false
 	}
 
 	if element._clip.width > 0 || element._clip.height > 0 {
-		return point_in_rect(
-			p,
-			{f32(element._clip.x), f32(element._clip.y)},
-			{f32(element._clip.width), f32(element._clip.height)},
-		)
+		return rl.CheckCollisionPointRec(p, {
+			f32(element._clip.x),
+			f32(element._clip.y),
+			f32(element._clip.width),
+			f32(element._clip.height),
+		})
 	}
 
 	return true
-}
-
-@(private)
-set_caret_index :: proc(ctx: ^Context, element: ^Element, index: int) {
-	ctx.caret_index = clamp(index, 0, len(element.text_input.buf))
-	ctx.caret_time = 0
-	ensure_caret_visible(ctx, element, ctx.caret_index)
 }
 
 @(private)

@@ -25,11 +25,6 @@ TextSelectionClass :: enum u8 {
 	Other,
 }
 
-@(private = "file")
-is_continuation_byte :: #force_inline proc(b: u8) -> bool {
-	return b >= 0x80 && b < 0xc0
-}
-
 @(private)
 utf8_prev :: proc {
 	utf8_prev_builder,
@@ -44,7 +39,7 @@ utf8_prev_builder :: proc(text: ^strings.Builder, index: int) -> int {
 
 	index := index
 	index -= 1
-	for index > 0 && is_continuation_byte(text.buf[index]) {
+	for index > 0 && !utf8.rune_start(text.buf[index]) {
 		index -= 1
 	}
 	return index
@@ -64,7 +59,7 @@ utf8_next_builder :: proc(text: ^strings.Builder, index: int) -> int {
 
 	index := index
 	index += 1
-	for index < len(text.buf) && is_continuation_byte(text.buf[index]) {
+	for index < len(text.buf) && !utf8.rune_start(text.buf[index]) {
 		index += 1
 	}
 	return index
@@ -78,7 +73,7 @@ utf8_prev_string :: proc(text: string, idx: int) -> int {
 
 	index := min(idx, len(text))
 	index -= 1
-	for index > 0 && is_continuation_byte(text[index]) {
+	for index > 0 && !utf8.rune_start(text[index]) {
 		index -= 1
 	}
 	return index
@@ -92,7 +87,7 @@ utf8_next_string :: proc(text: string, idx: int) -> int {
 
 	index := max(idx, 0)
 	index += 1
-	for index < len(text) && is_continuation_byte(text[index]) {
+	for index < len(text) && !utf8.rune_start(text[index]) {
 		index += 1
 	}
 	return index
@@ -108,7 +103,7 @@ rune_start :: proc(text: string, idx: int) -> int {
 	if index == len(text) {
 		return utf8_prev(text, index)
 	}
-	for index > 0 && is_continuation_byte(text[index]) {
+	for index > 0 && !utf8.rune_start(text[index]) {
 		index -= 1
 	}
 	return index
@@ -223,17 +218,6 @@ extend_text_selection :: proc(
 }
 
 @(private)
-delete_range :: proc(builder: ^strings.Builder, start: int, end: int) -> bool {
-	safe_start := max(0, start)
-	safe_end := min(end, len(builder.buf))
-	if safe_end <= safe_start {
-		return true
-	}
-	remove_range(&builder.buf, safe_start, safe_end)
-	return true
-}
-
-@(private)
 text_index_from_point :: proc(ctx: ^Context, element: ^Element, point: rl.Vector2) -> int {
 	text := element.text
 	if len(text) == 0 {
@@ -331,7 +315,7 @@ text_caret_from_point :: proc(ctx: ^Context, element: ^Element, point: rl.Vector
 					return 0
 				}
 				prev := line_end - 1
-				for prev > 0 && is_continuation_byte(text[prev]) {
+				for prev > 0 && !utf8.rune_start(text[prev]) {
 					prev -= 1
 				}
 				if prev < line_start {
@@ -348,7 +332,7 @@ text_caret_from_point :: proc(ctx: ^Context, element: ^Element, point: rl.Vector
 				return 0
 			}
 			prev := line_end - 1
-			for prev > 0 && is_continuation_byte(text[prev]) {
+			for prev > 0 && !utf8.rune_start(text[prev]) {
 				prev -= 1
 			}
 			if prev < line_start {
@@ -500,7 +484,7 @@ caret_index_end_of_line :: proc(ctx: ^Context, element: ^Element, caret_index: i
 			return 0
 		}
 		prev := line_end - 1
-		for prev > 0 && is_continuation_byte(element.text[prev]) {
+		for prev > 0 && !utf8.rune_start(element.text[prev]) {
 			prev -= 1
 		}
 		return prev

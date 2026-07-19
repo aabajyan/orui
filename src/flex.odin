@@ -412,39 +412,6 @@ flex_distribute_widths_column :: proc(ctx: ^Context, element: ^Element) {
 	element._content_size.x = max_width
 }
 
-// MARK: widths line
-@(private)
-flex_distribute_widths_line :: proc(
-	ctx: ^Context,
-	first_index: i32,
-	last_index: i32,
-	remaining_space: f32,
-	total_weight: f32,
-) {
-	if remaining_space <= 0 || total_weight <= 0 {
-		return
-	}
-
-	elements := &ctx.elements[current_buffer(ctx)]
-	child := first_index
-	for child != 0 {
-		child_element := &elements[child]
-
-		if child_element.width.type == .Grow {
-			weight := child_element.width.value
-			if weight <= 0 {weight = 1}
-			child_element._size.x += remaining_space * (weight / total_weight)
-			flex_clamp_width(ctx, child_element)
-		}
-
-		if child == last_index {
-			break
-		}
-
-		child = child_element.next
-	}
-}
-
 @(private)
 flex_width_distribution_guard :: proc(
 	ctx: ^Context,

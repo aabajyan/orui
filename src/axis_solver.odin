@@ -1,5 +1,7 @@
 package orui
 
+import "core:slice"
+
 /*
 1. Start each item at `size`, clamped to its fixed bounds
 2. Compute how much space is left:
@@ -155,7 +157,9 @@ capped_weighted_allocate :: proc(
 		return
 	}
 
-	sort_breakpoints(scratch[:breakpoint_count])
+	slice.stable_sort_by(scratch[:breakpoint_count], proc(a, b: AxisBreakpoint) -> bool {
+		return a.ratio < b.ratio
+	})
 
 	current_ratio: f32 = 0
 	consumed: f32 = 0
@@ -209,17 +213,4 @@ capped_weighted_allocate :: proc(
 	}
 
 	return
-}
-
-@(private = "file")
-sort_breakpoints :: proc(scratch: []AxisBreakpoint) {
-	for i := 1; i < len(scratch); i += 1 {
-		key := scratch[i]
-		j := i - 1
-		for j >= 0 && scratch[j].ratio > key.ratio {
-			scratch[j + 1] = scratch[j]
-			j -= 1
-		}
-		scratch[j + 1] = key
-	}
 }
