@@ -1069,12 +1069,15 @@ point_in_element :: proc(p: rl.Vector2, element: ^Element) -> bool {
 	}
 
 	if element._clip.width > 0 || element._clip.height > 0 {
-		return rl.CheckCollisionPointRec(p, {
-			f32(element._clip.x),
-			f32(element._clip.y),
-			f32(element._clip.width),
-			f32(element._clip.height),
-		})
+		return rl.CheckCollisionPointRec(
+			p,
+			{
+				f32(element._clip.x) - element.hit_slop.left,
+				f32(element._clip.y) - element.hit_slop.top,
+				f32(element._clip.width) + element.hit_slop.left + element.hit_slop.right,
+				f32(element._clip.height) + element.hit_slop.top + element.hit_slop.bottom,
+			},
+		)
 	}
 
 	return true
