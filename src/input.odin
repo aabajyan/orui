@@ -233,6 +233,10 @@ has_pending_input :: proc(ctx: ^Context) -> bool {
 	return ctx != nil && ctx.pending_key_event_count > 0
 }
 
+is_editing :: proc(ctx: ^Context) -> bool {
+	return ctx != nil && ctx.focus != 0 && ctx.caret_index != -1
+}
+
 Input_Frame :: struct {
 	pointer_position: rl.Vector2,
 	scroll:           rl.Vector2,
