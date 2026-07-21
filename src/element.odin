@@ -340,6 +340,8 @@ ElementConfig :: struct {
 	// Whether the element will consume mouse interactions, blocking elements below it from receiving them.
 	// Inherited from parent by default.
 	block:            InheritedBool,
+	// Extends the element's interactive area beyond its box by these amounts.
+	hit_slop:         Edges,
 	// How the element can receive focus. Empty means the element is not focusable.
 	focus:            Focus_Policy,
 	editable:         bool,
@@ -544,6 +546,7 @@ configure_element :: proc(
 	// input
 	element.disabled = config.disabled == .Inherit ? parent.disabled : config.disabled
 	element.block = config.block == .Inherit ? parent.block : config.block
+	element.hit_slop = config.hit_slop
 	element.focus = config.focus
 	element.editable = config.editable
 	element.cursor = config.cursor
