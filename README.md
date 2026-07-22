@@ -74,7 +74,7 @@ To do:
   - [label](#labelid-text-config-modifiers)
   - [text_input](#text_inputid-buffer-config-modifiers)
   - [image](#imageid-config-modifiers)
-  - [scrollbar](#scrollbarparent_id-background_config-handle_config-index--0)
+  - [scrollbar](#scrollbarparent_id-options-track_config-thumb_config)
   - [virtual_axis and virtual_grid](#virtual_axis-and-virtual_grid)
 - [Other functions](#other-functions)
 	- [pointer_response()](#pointer_response)
@@ -306,36 +306,57 @@ orui.image(orui.id("image"), &texture, {
 })
 ```
 
-### scrollbar(parent_id, background_config, handle_config, index := 0)
+### scrollbar(parent_id, options, track_config, thumb_config)
 
-Display a scrollbar for a scrolling container.
+Attach a scrollbar to a scrolling container. The parent remains the source of truth for its
+viewport, content extent, and scroll offset; callers only choose scrollbar policy and visuals.
 
-Note that this element takes very different parameters from the other widgets:
+- `parent_id`: ID of the scrolling container.
+- `options.axis`: `.Vertical` or `.Horizontal`. The axis is also part of the generated track and
+  thumb IDs, so a parent can have one scrollbar on each axis without numeric indices.
+- `options.visibility`: `.When_Needed` (default), `.Always`, or `.Hidden`.
+- `options.track_click`: `.None` (default), `.Jump`, or `.Page`.
+- `options.min_thumb_extent`: minimum thumb length. `0` uses
+  `SCROLL_BAR_DEFAULT_MIN_THUMB_EXTENT`.
+- `options.hit_extent`: total cross-axis interaction width. This can be wider than the visible
+  track without changing layout or rendering.
+- `track_config`: visual and layout configuration for the track.
+- `thumb_config`: visual configuration for the thumb. ORUI owns its main-axis size and position.
 
-- parent_id: this should be the ID of the scrolling container that you want to draw a scrollbar for.
-- background_config : this is the element config for the scrollbar background.
-- handle_config: this is the element config for the scrollbar handle. The scrollbar handle will be a child of the scrollbar background and positioned relatively. The `direction` field will control the direction of the scrollbar.
-- index: required if you have more than 1 scrollbar for a single container. Each scrollbar for the same container must have a unique index.
+Declare the scrollbar after its parent and inside the same positioned container. An absolute track
+with `placement` can overlay content; normal flex/grid layout can reserve space for a solid bar.
+Visibility hides rendering and interaction, not layout size, so a hidden in-flow bar keeps its slot.
 
-I recommend setting the scrolling container to be relatively positioned, the scrollbar to be an absolutely positioned child, and using the `placement` config to place the scrollbar.
+For horizontal scrollbars, set the thumb height. For vertical scrollbars, set the thumb width.
 
-For horizontal scrollbars, you MUST set a handle height. For vertical scrollbars, you MUST set a handle width.
-
-orui will overwrite the handle width and relative x position if it's a horizontal scrollbar and vice versa for vertical scrollbars.
+Dragging preserves the pointer's grab offset within the thumb. Track presses follow the selected
+policy, and the scroll offset is clamped to the parent container's measured range. `.Page` repeats
+while held after a short delay and stops when the thumb reaches the pointer.
 
 ```odin
-orui.scrollbar(orui.to_id("container id"), {
-  position = {.Absolute, {-5, 0}},
-  placement = placement(.Right, .Right),
-  width = orui.fixed(6),
-  height = orui.percent(0.9),
-  corner_radius = corner(4),
-  background_color = rl.BLACK,
-}, {
-  width = orui.percent(1),
-  background_color = rl.LIGHTGRAY,
-  corner_radius = corner(4),
-})
+orui.scrollbar(
+  orui.to_id("container id"),
+  {
+    axis = .Vertical,
+    visibility = .When_Needed,
+    track_click = .Jump,
+    min_thumb_extent = orui.SCROLL_BAR_DEFAULT_MIN_THUMB_EXTENT,
+    hit_extent = 14,
+  },
+  {
+    position = {.Absolute, {-5, 0}},
+    placement = placement(.Right, .Right),
+    width = orui.fixed(6),
+    height = orui.percent(0.9),
+    corner_radius = corner(4),
+    background_color = rl.BLACK,
+  },
+  {
+    width = orui.percent(1),
+    background_color = rl.LIGHTGRAY,
+    corner_radius = corner(4),
+  },
+)
 ```
 
 ### virtual_axis and virtual_grid
@@ -626,7 +647,7 @@ Layout :: enum {
 
 ### direction
 
-Set flex/grid layout direction, and scrollbar direction.
+Set flex/grid layout direction.
 
 ```odin
 LayoutDirection :: enum {

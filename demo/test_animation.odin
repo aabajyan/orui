@@ -29,6 +29,7 @@ render_test_animation :: proc() {
 
 	orui.scrollbar(
 		orui.to_id("container"),
+		{axis = .Vertical, track_click = .Jump},
 		{
 			position = {.Absolute, {-5, 0}},
 			placement = orui.placement(.Right, .Right),
@@ -36,12 +37,7 @@ render_test_animation :: proc() {
 			height = orui.grow(),
 			margin = orui.margin(2, 18),
 		},
-		{
-			direction = .TopToBottom,
-			width = orui.percent(1),
-			background_color = rl.DARKGRAY,
-			corner_radius = orui.corner(4),
-		},
+		{width = orui.percent(1), background_color = rl.DARKGRAY, corner_radius = orui.corner(4)},
 	)
 
 	orui.label(
@@ -480,6 +476,7 @@ animation_scroll_row :: proc() {
 	}
 	orui.scrollbar(
 		orui.to_id("scroll viewport"),
+		{axis = .Vertical, track_click = .Jump},
 		{
 			position = {.Absolute, {-4, 0}},
 			placement = orui.placement(.TopRight, .TopRight),
@@ -489,7 +486,6 @@ animation_scroll_row :: proc() {
 			corner_radius = orui.corner(4),
 		},
 		{
-			direction = .TopToBottom,
 			width = orui.percent(1),
 			background_color = {80, 125, 185, 255},
 			corner_radius = orui.corner(4),
@@ -497,6 +493,7 @@ animation_scroll_row :: proc() {
 	)
 	orui.scrollbar(
 		orui.to_id("scroll viewport"),
+		{axis = .Horizontal, track_click = .Jump},
 		{
 			position = {.Absolute, {0, -4}},
 			placement = orui.placement(.BottomLeft, .BottomLeft),
@@ -506,11 +503,9 @@ animation_scroll_row :: proc() {
 			corner_radius = orui.corner(4),
 		},
 		{
-			direction = .LeftToRight,
 			height = orui.percent(1),
 			background_color = {80, 125, 185, 255},
 			corner_radius = orui.corner(4),
 		},
-		1,
 	)
 }

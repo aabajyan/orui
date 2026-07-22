@@ -38,6 +38,7 @@ render_test_scroll :: proc() {
 
 	orui.scrollbar(
 		orui.to_id("container"),
+		{axis = .Vertical, track_click = .Jump},
 		{
 			position = {.Absolute, {-5, 0}},
 			placement = orui.placement(.Right, .Right),
@@ -45,12 +46,7 @@ render_test_scroll :: proc() {
 			height = orui.grow(),
 			margin = orui.margin(2, 18),
 		},
-		{
-			direction = .TopToBottom,
-			width = orui.percent(1),
-			background_color = rl.DARKGRAY,
-			corner_radius = orui.corner(4),
-		},
+		{width = orui.percent(1), background_color = rl.DARKGRAY, corner_radius = orui.corner(4)},
 	)
 
 	orui.label(
@@ -106,13 +102,14 @@ render_test_scroll :: proc() {
 
 		orui.scrollbar(
 			orui.to_id("text input 2"),
+			{axis = .Vertical, track_click = .Jump},
 			{
 				position = {.Absolute, {-5, 0}},
 				placement = orui.placement(.Right, .Right),
 				width = orui.fixed(6),
 				height = orui.percent(0.9),
 			},
-			{direction = .TopToBottom, width = orui.percent(1), background_color = rl.LIGHTGRAY},
+			{width = orui.percent(1), background_color = rl.LIGHTGRAY},
 		)
 	}
 
@@ -154,6 +151,7 @@ render_test_scroll :: proc() {
 
 		orui.scrollbar(
 			orui.to_id("scroll container"),
+			{axis = .Vertical, track_click = .Jump},
 			{
 				position = {.Absolute, {5, 0}},
 				placement = orui.placement(.Right, .Left),
@@ -163,16 +161,15 @@ render_test_scroll :: proc() {
 				corner_radius = orui.corner(4),
 			},
 			{
-				direction = .TopToBottom,
 				width = orui.percent(1),
 				background_color = rl.DARKGRAY,
 				corner_radius = orui.corner(4),
 			},
-			0,
 		)
 
 		orui.scrollbar(
 			orui.to_id("scroll container"),
+			{axis = .Horizontal, track_click = .Jump},
 			{
 				position = {.Absolute, {0, 15}},
 				placement = orui.placement(.Bottom, .Bottom),
@@ -182,12 +179,10 @@ render_test_scroll :: proc() {
 				corner_radius = orui.corner(4),
 			},
 			{
-				direction = .LeftToRight,
 				height = orui.percent(1),
 				background_color = rl.DARKGRAY,
 				corner_radius = orui.corner(4),
 			},
-			1,
 		)
 	}
 }

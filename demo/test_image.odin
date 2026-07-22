@@ -20,6 +20,7 @@ render_test_image :: proc() {
 
 	orui.scrollbar(
 		orui.to_id("container"),
+		{axis = .Vertical, track_click = .Jump},
 		{
 			position = {.Absolute, {-5, 0}},
 			placement = orui.placement(.Right, .Right),
@@ -27,12 +28,7 @@ render_test_image :: proc() {
 			height = orui.grow(),
 			margin = orui.margin(2, 18),
 		},
-		{
-			direction = .TopToBottom,
-			width = orui.percent(1),
-			background_color = rl.DARKGRAY,
-			corner_radius = orui.corner(4),
-		},
+		{width = orui.percent(1), background_color = rl.DARKGRAY, corner_radius = orui.corner(4)},
 	)
 
 	orui.label(

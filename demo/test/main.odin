@@ -104,17 +104,14 @@ main :: proc() {
 
 			orui.scrollbar(
 				orui.to_id("text input"),
+				{axis = .Vertical, track_click = .Jump},
 				{
 					position = {.Absolute, {-5, 0}},
 					placement = orui.placement(.Right, .Right),
 					width = orui.fixed(6),
 					height = orui.percent(0.95),
 				},
-				{
-					direction = .TopToBottom,
-					width = orui.percent(1),
-					background_color = {90, 50, 50, 255},
-				},
+				{width = orui.percent(1), background_color = {90, 50, 50, 255}},
 			)
 		}
 

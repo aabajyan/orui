@@ -66,6 +66,8 @@ Context :: struct {
 	cursor_emitted:          bool,
 	// resize lifecycle
 	resize_drag:             Resize_Drag_Session,
+	// scrollbar lifecycle
+	scrollbar_session:       Scroll_Bar_Session,
 	// popup lifecycle
 	popups:                  [MAX_POPUPS]Popup_State,
 	popup_count:             int,
@@ -227,6 +229,9 @@ _end_with_context :: proc(ctx: ^Context) -> []RenderCommand {
 	distribute_heights(ctx, 0)
 	compute_layout(ctx, 0)
 	render(ctx)
+	if ctx.scrollbar_session.active && !ctx.pointer_buttons_down[int(rl.MouseButton.LEFT)] {
+		ctx.scrollbar_session = {}
+	}
 	return ctx.render_commands[:ctx.render_command_count]
 }
 
