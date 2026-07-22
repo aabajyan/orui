@@ -45,6 +45,8 @@ Features:
   - Interleave your own rendering with the UI
 - Pointer routing through element subtrees
   - Non-visual hit slop for thin interaction targets
+- Drag and drop sources and geometric drop targets
+- Fixed-pitch sortable horizontal and vertical axes
 - Resizable element edges and corners
 - Cursor
 - Animation helpers
@@ -79,6 +81,8 @@ To do:
 - [Other functions](#other-functions)
 	- [pointer_response()](#pointer_response)
 	- [pointer_position()](#pointer_position)
+	- [drag_source(), drag_response(), and drop_target()](#drag_source-drag_response-and-drop_target)
+	- [sortable_item() and sortable_axis()](#sortable_item-and-sortable_axis)
 	- [cursor and request_cursor()](#cursor-and-request_cursor)
 	- [focused()](#focused)
 	- [request_focus(), clear_focus()](#request_focus-clear_focus)
@@ -430,6 +434,79 @@ Returns the pointer position from the same input snapshot used for routing:
 ```odin
 mouse := orui.pointer_position()
 ```
+
+### drag_source(), drag_response(), and drop_target()
+
+`drag_source` registers a stable element ID as a source and returns its gesture geometry. The
+default threshold is `DRAG_DEFAULT_THRESHOLD` (6 ORUI units). A drag starts only after the
+Euclidean distance from the press origin is greater than the threshold, so diagonal movement is
+treated consistently with horizontal and vertical movement.
+
+```odin
+drag := orui.drag_source(row_id)
+if .Started in drag.flags {
+	// Store caller-owned, typed payload metadata.
+}
+if .Dragged in drag.flags {
+	ghost_position := drag.position - drag.grab_offset
+}
+```
+
+The flags are `Started`, `Dragged`, `Stopped`, and `Cancelled`. `Started` and `Dragged` occur
+together on the first active frame. `Stopped` is available on the release frame. Escape reports
+`Cancelled`. ORUI clears the session at the end of a stopped or cancelled frame, after callers
+have had an opportunity to read it.
+
+ORUI stores only pointer lifecycle, source ID, and geometry; it does not type-erase application
+payloads. Keep the payload in caller-owned typed state. `drag_response(source_id)` keeps the
+gesture observable when a virtualized or conditionally declared source is absent.
+
+Normal hover is suppressed during pointer capture. Use `drop_target` to test a target's clipped
+interaction rectangle independently of hover routing:
+
+```odin
+drop := orui.drop_target(list_id, row_id)
+if .Hovered in drop.flags {
+	// Draw the target preview.
+}
+if .Dropped in drop.flags {
+	// Consume the caller-owned payload.
+}
+```
+
+The source ID is explicit so multiple typed payload owners cannot be confused. `pointer_contains`
+exposes the same geometric test when a custom target policy needs more than `Hovered`/`Dropped`.
+
+### sortable_item() and sortable_axis()
+
+Use `sortable_item` for fixed-pitch rows or columns that can be reordered. Register visible items
+while declaring them, then call `sortable_axis` once after the axis contents. ORUI keeps an active
+source observable when virtualization stops declaring it.
+
+```odin
+orui.sortable_item(list_id, row_id, row_index)
+
+sort := orui.sortable_axis(list_id, {
+	count = row_count,
+	item_extent = row_height,
+	direction = .TopToBottom,
+	release = .Require_Inside,
+})
+if sort.dropped {
+	move_typed_item(sort.source_index, sort.destination_index)
+}
+```
+
+Without a handle, only a press owned directly by the item can start sorting, so buttons and other
+blocking descendants retain their interactions. Pass a stable handle ID as the fourth argument to
+make that descendant the only valid initiator.
+
+The response contains the generic drag lifecycle, source index, insertion slot, normalized
+destination index, marker offset, and axis-locked ghost rectangle. The caller retains typed payloads
+and draws the marker and ghost. `.Require_Inside` drops only inside the clipped axis;
+`.Clamp_To_Axis` accepts release anywhere and clamps to an axis destination. Set
+`edge_scroll_zone` and `edge_scroll_items_per_second` to enable time-based edge scrolling; the
+provided `SORTABLE_AXIS_DEFAULT_*` constants are suitable defaults.
 
 ### cursor and request_cursor()
 

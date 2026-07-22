@@ -481,7 +481,7 @@ handle_input_state_with :: proc(
 			continue
 		}
 
-		if !point_in_element(position, element) {
+		if !point_in_element(ctx, previous, position, element_index) {
 			continue
 		}
 
@@ -1055,7 +1055,9 @@ clear_focus_context :: proc(ctx: ^Context) {
 }
 
 @(private)
-point_in_element :: proc(p: rl.Vector2, element: ^Element) -> bool {
+point_in_element :: proc(ctx: ^Context, buffer: int, p: rl.Vector2, index: i32) -> bool {
+	elements := &ctx.elements[buffer]
+	element := &elements[index]
 	position := rl.Vector2 {
 		element._position.x - element.hit_slop.left,
 		element._position.y - element.hit_slop.top,
@@ -1068,14 +1070,22 @@ point_in_element :: proc(p: rl.Vector2, element: ^Element) -> bool {
 		return false
 	}
 
-	if element._clip.width > 0 || element._clip.height > 0 {
+	interaction_clip: ClipRectangle
+	switch element.clip.type {
+	case .Inherit, .Self, .Manual:
+		interaction_clip = element._clip
+	case .Intersect:
+		interaction_clip = elements[element.parent]._clip
+	case .None:
+	}
+	if interaction_clip.width > 0 || interaction_clip.height > 0 {
 		return rl.CheckCollisionPointRec(
 			p,
 			{
-				f32(element._clip.x) - element.hit_slop.left,
-				f32(element._clip.y) - element.hit_slop.top,
-				f32(element._clip.width) + element.hit_slop.left + element.hit_slop.right,
-				f32(element._clip.height) + element.hit_slop.top + element.hit_slop.bottom,
+				f32(interaction_clip.x),
+				f32(interaction_clip.y),
+				f32(interaction_clip.width),
+				f32(interaction_clip.height),
 			},
 		)
 	}

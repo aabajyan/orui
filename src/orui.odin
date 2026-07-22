@@ -66,6 +66,10 @@ Context :: struct {
 	cursor_emitted:          bool,
 	// resize lifecycle
 	resize_drag:             Resize_Drag_Session,
+	// drag and drop lifecycle
+	drag_drop_session:       Drag_Drop_Session,
+	// sortable axis lifecycle
+	sortable_axis_session:   Sortable_Axis_Session,
 	// scrollbar lifecycle
 	scrollbar_session:       Scroll_Bar_Session,
 	// popup lifecycle
@@ -177,6 +181,7 @@ _begin_frame :: proc(ctx: ^Context, width, height, dt: f32, input: Input_Frame, 
 	} else {
 		handle_input_state(ctx)
 	}
+	update_drag_drop_session(ctx)
 
 	elements := &ctx.elements[current_buffer(ctx)]
 	element_count := &ctx.element_count[current_buffer(ctx)]
@@ -229,6 +234,7 @@ _end_with_context :: proc(ctx: ^Context) -> []RenderCommand {
 	distribute_heights(ctx, 0)
 	compute_layout(ctx, 0)
 	render(ctx)
+	end_drag_drop_session(ctx)
 	if ctx.scrollbar_session.active && !ctx.pointer_buttons_down[int(rl.MouseButton.LEFT)] {
 		ctx.scrollbar_session = {}
 	}
